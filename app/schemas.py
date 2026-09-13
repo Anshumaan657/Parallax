@@ -151,6 +151,18 @@ class IntegrationStatusRead(BaseModel):
     detail: str
 
 
+class IntegrationCapabilityRead(BaseModel):
+    operation: str
+    access: Literal["read", "write"]
+    description: str
+
+
+class IntegrationCapabilitiesRead(BaseModel):
+    name: Literal["GitHub", "Jira", "Notion", "Slack"]
+    mode: Literal["mock", "real"]
+    capabilities: list[IntegrationCapabilityRead]
+
+
 class DashboardStatsRead(BaseModel):
     active_tasks: int
     completed_this_week: int

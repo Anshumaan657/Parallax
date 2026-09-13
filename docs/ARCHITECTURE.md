@@ -13,6 +13,15 @@ Parallax/
 │   ├── queue.py                # Redis connection
 │   ├── worker.py               # Separate ARQ worker process
 │   ├── metrics.py              # Prometheus instruments
+│   ├── integrations/
+│   │   ├── contracts.py        # Typed records, health, capabilities, approval proof
+│   │   ├── http.py             # Error-normalizing HTTPX transport
+│   │   ├── github.py           # GitHub read/context adapter
+│   │   ├── jira.py             # Jira read and approval-gated writes
+│   │   ├── notion.py           # Notion read and approval-gated writes
+│   │   ├── slack.py            # Slack read and approval-gated notifications
+│   │   ├── mock.py             # Network-free deterministic equivalents
+│   │   └── registry.py         # Real/mock adapter selection
 │   └── routers/
 │       ├── health.py           # Liveness and dependency readiness
 │       ├── auth.py             # Local authentication and token rotation
@@ -59,3 +68,16 @@ Frontend/PM -> FastAPI -> PostgreSQL transaction (mission + outbox + audit)
 PostgreSQL is authoritative. Creating a mission atomically writes the mission, initial transition, activity/audit records, and an outbox job. A periodic worker dispatcher transfers committed outbox jobs to ARQ with a stable job ID. The mission worker then performs a guarded `queued -> planning` transition. This avoids losing work between a database commit and Redis enqueue.
 
 Phase 3 does not collect external context, invoke the Agent service, or mutate integrations. Those boundaries are implemented in Phases 4–7.
+
+## Integration boundary
+
+`INTEGRATION_MODE=mock` is the local default. Mock adapters implement the same typed methods as real adapters and still require approval proof for writes. `INTEGRATION_MODE=real` selects HTTPX clients using environment credentials; secrets are represented as `SecretStr`, never returned by APIs, and never stored in integration configuration JSON.
+
+The adapters currently provide:
+
+- GitHub: repository, pull request, pull request list, and repository-content reads.
+- Jira: issue reads/search plus approval-gated create/update.
+- Notion: page reads/search plus approval-gated block append.
+- Slack: channel history plus approval-gated post/update.
+
+The connection-check API is the only Phase 4 adapter mutation exposed publicly. Business writes remain internal and unreachable until a future execution service loads and validates a persisted approval. Vendor errors are converted to safe `AdapterError` values with retryability metadata; retries and read-after-write verification belong to Phase 7.

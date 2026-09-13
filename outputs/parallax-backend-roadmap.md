@@ -29,6 +29,8 @@ Status: complete and verified; awaiting commit
 
 ## Phase 4 — Four integration adapters
 
+Status: complete and verified; awaiting commit
+
 - GitHub read/context operations
 - Jira read and approved updates
 - Notion read and approved documentation

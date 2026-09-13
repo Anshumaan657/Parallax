@@ -1,4 +1,5 @@
 from functools import lru_cache
+from typing import Literal
 
 from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -23,15 +24,17 @@ class Settings(BaseSettings):
     jwt_access_token_minutes: int = Field(default=15, ge=1, le=120)
     jwt_refresh_token_days: int = Field(default=7, ge=1, le=90)
 
-    github_token: str = ""
+    integration_mode: Literal["mock", "real"] = "mock"
+    integration_timeout_seconds: float = Field(default=10.0, ge=1, le=60)
+    github_token: SecretStr = SecretStr("")
     github_default_repo: str = ""
-    slack_bot_token: str = ""
+    slack_bot_token: SecretStr = SecretStr("")
     slack_default_channel: str = "#engineering"
     jira_base_url: str = ""
     jira_email: str = ""
-    jira_api_token: str = ""
+    jira_api_token: SecretStr = SecretStr("")
     jira_default_project: str = ""
-    notion_token: str = ""
+    notion_token: SecretStr = SecretStr("")
     notion_parent_page_id: str = ""
 
     agent_service_url: str = "http://localhost:8100"

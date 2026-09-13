@@ -2,7 +2,7 @@
 
 Local-first Python backend for the Parallax MVP. It accepts missions entered by a PM or agent user; GitHub webhooks are not part of the current input flow.
 
-The backend currently includes the local FastAPI/ARQ/PostgreSQL/Redis foundation, workspace authentication and authorization, and Phase 3 manual mission APIs with a durable transactional outbox. GitHub, Jira, Notion, and Slack adapters remain disconnected until Phase 4.
+The backend currently includes the local FastAPI/ARQ/PostgreSQL/Redis foundation, workspace authentication and authorization, manual mission APIs with a durable transactional outbox, and typed GitHub, Jira, Notion, and Slack adapters.
 
 ## Run the complete local stack
 
@@ -76,3 +76,9 @@ curl -X POST http://localhost:8000/api/missions \
 ```
 
 The request returns `202`. Poll `GET /api/missions/{mission_id}` for timeline updates. In Phase 3 the worker intentionally stops at `planning`; no Agent or external integration is called yet.
+
+## Integration modes
+
+`INTEGRATION_MODE=mock` is the default and makes no third-party network requests. It supplies deterministic GitHub, Jira, Notion, and Slack behavior for local frontend, backend, and Agent-team development.
+
+Set `INTEGRATION_MODE=real` and configure the provider variables in `.env` to use real adapters. Check a connection through `POST /api/integrations/{provider}/check`. Jira, Notion, and Slack business writes are not exposed as public APIs and require backend approval proof even in mock mode.

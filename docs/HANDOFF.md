@@ -5,8 +5,9 @@
 - Branch: `feature/backend-development`
 - Phase 1: complete and committed as `b5ff4ec`
 - Phase 2: complete and committed as `16016b4`
-- Phase 3: implemented and verified in the working tree; not committed or pushed
-- Next phase: Phase 4 — four integration adapters
+- Phase 3: complete and committed as `e3f8027`
+- Phase 4: complete and verified in the working tree; not committed or pushed
+- Next phase: Phase 5 — context collection and Agent gateway
 
 ## Phase 3 implementation
 
@@ -24,6 +25,19 @@ Frontend/API endpoints:
 Persistence added for missions, ordered steps, state transitions, activity, immutable-style audit events, idempotency records, and transactional outbox jobs. Manual submission commits the initial mission and job intent atomically. The worker dispatches the outbox to ARQ with a stable job ID and advances the mission from `queued` to `planning`.
 
 The mission state machine rejects illegal transitions. Mission reads, dashboard projections, projects, integrations, idempotency keys, and correlation IDs are all workspace-scoped.
+
+## Phase 4 implementation
+
+- Real HTTPX clients for GitHub, Jira, Notion, and Slack
+- Deterministic network-free mock implementations with matching contracts
+- Typed external records, capabilities, health results, and write-approval context
+- Safe vendor/network error normalization
+- Environment-only credentials using Pydantic secret types
+- Workspace-scoped, role-protected connection checks with audit records
+- Capability discovery endpoint for frontend and test teams
+- Approval required before any Jira, Notion, or Slack adapter write reaches the network
+
+No public integration business-write endpoint exists yet. Phase 6 must persist approvals, and Phase 7 must load that record before constructing `ApprovedWriteContext` and invoking a write method.
 
 ## Existing Phase 2 foundation
 
@@ -91,15 +105,16 @@ docker compose up --build -d
 ## Current boundary
 
 - The worker deliberately stops at `planning`; context collection and the Agent gateway are Phase 5.
-- Integration records are status placeholders; real/mock adapters and credential handling are Phase 4.
-- No external system is mutated and no approval or execution behavior is claimed in Phase 3.
+- Real adapters are implemented but live credentials were not supplied, so vendor acceptance tests are not claimed.
+- Mock writes are deterministic in memory; Phase 7 owns persisted execution records, idempotency, retries, and verification.
+- GitHub remains read-only for the current Phase 4 scope.
 - Local registration remains intentionally open for the local MVP.
 
 ## Verification result
 
 - Ruff: passed
 - strict MyPy: passed for the app and seed command
-- Pytest: 12 passed (including Phase 3 API, isolation, outbox, and worker tests)
+- Pytest: 19 passed (including Phase 4 contracts, routing, real HTTP mocks, safe errors, secret masking, and approval guards)
 - Generated OpenAPI contract: refreshed
 - Existing PostgreSQL database: `20260913_0003 (head)`
 - Fresh PostgreSQL migration: passed from empty schema through `20260913_0003`

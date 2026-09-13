@@ -130,6 +130,28 @@ The worker moves a queued mission to `planning` and records the first timeline s
 
 Common errors use `{"detail":"..."}` with `401`, `403`, `404`, `409`, or `422`. Responses include `X-Correlation-ID`; a valid UUID supplied in the request header is preserved.
 
+## Implemented in Phase 4
+
+### `GET /api/integrations/{provider}/capabilities`
+
+Returns the typed operations available for `github`, `jira`, `notion`, or `slack`, their read/write classification, and whether the backend is in `mock` or `real` integration mode. All workspace roles may read capabilities.
+
+### `POST /api/integrations/{provider}/check`
+
+Checks one connection and persists its workspace-scoped status, check time, mode, and safe status message. Requires `owner`, `admin`, or `manager`. The result is recorded in the audit log.
+
+```json
+{
+  "name": "GitHub",
+  "connected": true,
+  "detail": "Connected in deterministic mock mode"
+}
+```
+
+In `mock` mode no third-party network request is made. In `real` mode missing credentials produce `connected: false`; normalized vendor/network failures return `502` without exposing tokens or vendor response bodies.
+
+Phase 4 does not publish integration data or mutation endpoints. GitHub/Jira/Notion reads are invoked internally by the Phase 5 context worker. Jira, Notion, and Slack write methods require a typed, previously validated approval context and will be wired to persisted approvals only in Phases 6–7.
+
 ## Implemented in Phase 2
 
 Protected routes use:
