@@ -51,3 +51,14 @@ python scripts/export_openapi.py
 
 The maintained API contract and team boundaries are documented in `docs/API.md` and `docs/ALIGNMENT.md`.
 
+## Local authentication
+
+Phase 2 adds local JWT authentication and workspace-scoped authorization. Before sharing a non-local environment, replace `JWT_SECRET` with a random value of at least 32 characters.
+
+Optional demo identity seeding uses values from `.env`:
+
+```bash
+python scripts/seed_demo.py
+```
+
+The seed command refuses to run unless `DEMO_OWNER_EMAIL` and a password of at least 12 characters are configured.

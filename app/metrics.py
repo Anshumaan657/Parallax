@@ -11,4 +11,3 @@ HTTP_DURATION = Histogram(
     "HTTP request duration in seconds",
     ("method", "path"),
 )
-

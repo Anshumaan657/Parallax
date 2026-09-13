@@ -97,6 +97,61 @@ DashboardStats
 
 The Drive frontend currently styles `queued`, `running`, `completed`, `blocked`, and `failed`. The frontend team must add styles for approval, rejection, cancellation, and partial completion before those states are enabled.
 
+## Implemented in Phase 2
+
+Protected routes use:
+
+```http
+Authorization: Bearer <access-token>
+X-Workspace-ID: <workspace-uuid>
+```
+
+`X-Workspace-ID` is optional because the access token is already workspace-scoped. If supplied, it must match the token. To change workspaces, log in with the desired `workspace_id` and receive a newly scoped token.
+
+### `POST /api/auth/register`
+
+Creates a user, workspace, owner membership, and token session atomically. Returns `201`. Duplicate email or workspace slug returns `409`.
+
+```json
+{
+  "email": "owner@example.com",
+  "password": "a-password-with-12-or-more-characters",
+  "display_name": "Example Owner",
+  "workspace_name": "Example Engineering",
+  "workspace_slug": "example-engineering"
+}
+```
+
+### `POST /api/auth/login`
+
+Authenticates a local user. `workspace_id` is optional; when omitted, the oldest membership is selected. Returns an access token and opaque refresh token.
+
+### `POST /api/auth/refresh`
+
+Rotates the supplied refresh token. The old refresh session and its access token become invalid immediately.
+
+### `POST /api/auth/logout`
+
+Revokes the refresh session. Returns `204` with no response body.
+
+### `GET /api/auth/me`
+
+Returns the current user, active workspace, role, and available workspaces. Password and token hashes are never returned.
+
+### `GET /api/workspaces/current`
+
+Returns the workspace and role derived from the access token.
+
+### `GET /api/workspaces/current/members`
+
+Lists members of the token-scoped workspace. Requires authentication.
+
+### `PATCH /api/workspaces/current/members/{user_id}`
+
+Changes a member role. Requires owner or admin. Only owners may manage the owner role, and a workspace must retain at least one owner.
+
+Available roles are `owner`, `admin`, `manager`, `reviewer`, and `viewer`.
+
 ## Endpoint documentation rule
 
 Every endpoint must declare a tag, summary, request model, response model, error responses, and stable status codes. Mutation endpoints must also document idempotency and approval behavior.

@@ -13,7 +13,9 @@ from app.config import settings
 from app.database import close_database
 from app.logging import configure_logging
 from app.metrics import HTTP_DURATION, HTTP_REQUESTS
+from app.routers.auth import router as auth_router
 from app.routers.health import router as health_router
+from app.routers.workspaces import router as workspaces_router
 
 configure_logging()
 logger = structlog.get_logger()
@@ -76,9 +78,10 @@ async def request_context(request: Request, call_next: RequestResponseEndpoint) 
 
 
 app.include_router(health_router)
+app.include_router(auth_router)
+app.include_router(workspaces_router)
 
 
 @app.get("/metrics", include_in_schema=False)
 async def metrics() -> Response:
     return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
-

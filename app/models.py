@@ -1,0 +1,246 @@
+from __future__ import annotations
+
+import enum
+import uuid
+from datetime import datetime
+from typing import Any
+
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    DateTime,
+    Enum,
+    ForeignKey,
+    Index,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
+)
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+
+
+class Base(DeclarativeBase):
+    pass
+
+
+class TimestampMixin:
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+
+class WorkspaceRole(str, enum.Enum):
+    OWNER = "owner"
+    ADMIN = "admin"
+    MANAGER = "manager"
+    REVIEWER = "reviewer"
+    VIEWER = "viewer"
+
+
+class IntegrationProvider(str, enum.Enum):
+    GITHUB = "github"
+    JIRA = "jira"
+    NOTION = "notion"
+    SLACK = "slack"
+
+
+class IntegrationStatus(str, enum.Enum):
+    DISCONNECTED = "disconnected"
+    CONNECTED = "connected"
+    ERROR = "error"
+
+
+class User(TimestampMixin, Base):
+    __tablename__ = "users"
+    __table_args__ = (
+        UniqueConstraint("email", name="uq_users_email"),
+        Index("ix_users_email", "email", unique=True),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    email: Mapped[str] = mapped_column(String(320))
+    password_hash: Mapped[str] = mapped_column(Text)
+    display_name: Mapped[str] = mapped_column(String(120))
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+    memberships: Mapped[list[WorkspaceMembership]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+
+
+class Workspace(TimestampMixin, Base):
+    __tablename__ = "workspaces"
+    __table_args__ = (
+        UniqueConstraint("slug", name="uq_workspaces_slug"),
+        Index("ix_workspaces_slug", "slug", unique=True),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    name: Mapped[str] = mapped_column(String(120))
+    slug: Mapped[str] = mapped_column(String(80))
+
+    memberships: Mapped[list[WorkspaceMembership]] = relationship(
+        back_populates="workspace", cascade="all, delete-orphan"
+    )
+
+
+class WorkspaceMembership(TimestampMixin, Base):
+    __tablename__ = "workspace_memberships"
+    __table_args__ = (
+        UniqueConstraint("workspace_id", "user_id", name="uq_membership_workspace_user"),
+        Index("ix_membership_user_workspace", "user_id", "workspace_id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    workspace_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("workspaces.id", ondelete="CASCADE"), index=True
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    role: Mapped[WorkspaceRole] = mapped_column(
+        Enum(
+            WorkspaceRole,
+            name="workspace_role",
+            values_callable=lambda values: [v.value for v in values],
+        )
+    )
+
+    workspace: Mapped[Workspace] = relationship(back_populates="memberships")
+    user: Mapped[User] = relationship(back_populates="memberships")
+
+
+class Team(TimestampMixin, Base):
+    __tablename__ = "teams"
+    __table_args__ = (UniqueConstraint("workspace_id", "name", name="uq_team_workspace_name"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    workspace_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("workspaces.id", ondelete="CASCADE"), index=True
+    )
+    name: Mapped[str] = mapped_column(String(120))
+    description: Mapped[str | None] = mapped_column(Text)
+
+
+class Project(TimestampMixin, Base):
+    __tablename__ = "projects"
+    __table_args__ = (UniqueConstraint("workspace_id", "name", name="uq_project_workspace_name"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    workspace_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("workspaces.id", ondelete="CASCADE"), index=True
+    )
+    team_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("teams.id", ondelete="SET NULL"), index=True
+    )
+    name: Mapped[str] = mapped_column(String(120))
+    description: Mapped[str | None] = mapped_column(Text)
+
+
+class Repository(TimestampMixin, Base):
+    __tablename__ = "repositories"
+    __table_args__ = (
+        UniqueConstraint("workspace_id", "provider", "external_id", name="uq_repository_external"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    workspace_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("workspaces.id", ondelete="CASCADE"), index=True
+    )
+    project_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("projects.id", ondelete="SET NULL"), index=True
+    )
+    provider: Mapped[IntegrationProvider] = mapped_column(
+        Enum(
+            IntegrationProvider,
+            name="integration_provider",
+            values_callable=lambda values: [v.value for v in values],
+        ),
+        default=IntegrationProvider.GITHUB,
+    )
+    external_id: Mapped[str] = mapped_column(String(255))
+    full_name: Mapped[str] = mapped_column(String(255))
+    default_branch: Mapped[str] = mapped_column(String(255), default="main")
+
+
+class Integration(TimestampMixin, Base):
+    __tablename__ = "integrations"
+    __table_args__ = (
+        UniqueConstraint("workspace_id", "provider", name="uq_integration_workspace_provider"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    workspace_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("workspaces.id", ondelete="CASCADE"), index=True
+    )
+    provider: Mapped[IntegrationProvider] = mapped_column(
+        Enum(
+            IntegrationProvider,
+            name="integration_provider",
+            values_callable=lambda values: [v.value for v in values],
+        )
+    )
+    status: Mapped[IntegrationStatus] = mapped_column(
+        Enum(
+            IntegrationStatus,
+            name="integration_status",
+            values_callable=lambda values: [v.value for v in values],
+        ),
+        default=IntegrationStatus.DISCONNECTED,
+    )
+    display_name: Mapped[str] = mapped_column(String(120))
+    configuration: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    credential_reference: Mapped[str | None] = mapped_column(String(255))
+    last_checked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class ExternalIdentity(TimestampMixin, Base):
+    __tablename__ = "external_identities"
+    __table_args__ = (
+        UniqueConstraint(
+            "workspace_id", "provider", "external_user_id", name="uq_external_identity"
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    workspace_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("workspaces.id", ondelete="CASCADE"), index=True
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    provider: Mapped[IntegrationProvider] = mapped_column(
+        Enum(
+            IntegrationProvider,
+            name="integration_provider",
+            values_callable=lambda values: [v.value for v in values],
+        )
+    )
+    external_user_id: Mapped[str] = mapped_column(String(255))
+    external_username: Mapped[str | None] = mapped_column(String(255))
+
+
+class RefreshSession(TimestampMixin, Base):
+    __tablename__ = "refresh_sessions"
+    __table_args__ = (
+        UniqueConstraint("token_hash", name="uq_refresh_sessions_token_hash"),
+        Index("ix_refresh_sessions_token_hash", "token_hash", unique=True),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    workspace_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("workspaces.id", ondelete="CASCADE"), index=True
+    )
+    token_hash: Mapped[str] = mapped_column(String(64))
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    replaced_by_session_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("refresh_sessions.id", ondelete="SET NULL")
+    )

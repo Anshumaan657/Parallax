@@ -49,4 +49,3 @@ class WorkerSettings:
     on_shutdown = shutdown
     redis_settings = RedisSettings.from_dsn(settings.redis_url)
     health_check_interval = 10
-

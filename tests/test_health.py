@@ -18,4 +18,3 @@ def test_drive_compatible_health_path() -> None:
         response = client.get("/api/health")
 
     assert response.status_code == 200
-

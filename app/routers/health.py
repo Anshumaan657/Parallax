@@ -93,4 +93,3 @@ async def ready(response: Response) -> ReadyResponse:
             worker=worker_state,
         ),
     )
-
