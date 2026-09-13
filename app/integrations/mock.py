@@ -2,6 +2,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from app.integrations.contracts import (
+    AdapterError,
     AdapterHealth,
     ApprovedWriteContext,
     ExternalRecord,
@@ -9,6 +10,15 @@ from app.integrations.contracts import (
     require_approval,
 )
 from app.models import IntegrationProvider
+
+
+def _fail_if_configured(provider: IntegrationProvider) -> None:
+    # Imported lazily to avoid a settings/import cycle in adapter module initialization.
+    from app.config import settings
+
+    if settings.demo_failure_provider == provider.value:
+        raise AdapterError(provider, "Injected local demo failure", retryable=False)
+
 
 CAPABILITIES: dict[IntegrationProvider, list[IntegrationCapability]] = {
     IntegrationProvider.GITHUB: [
@@ -66,6 +76,7 @@ class MockAdapter:
         self.capabilities = CAPABILITIES[provider]
 
     async def health(self) -> AdapterHealth:
+        _fail_if_configured(self.provider)
         return AdapterHealth(
             provider=self.provider,
             connected=True,
@@ -127,6 +138,7 @@ class MockJiraAdapter(MockAdapter):
         self, fields: dict[str, Any], approval: ApprovedWriteContext | None
     ) -> ExternalRecord:
         require_approval(approval)
+        _fail_if_configured(self.provider)
         return ExternalRecord(
             provider=self.provider,
             external_id="MOCK-1",
@@ -138,6 +150,7 @@ class MockJiraAdapter(MockAdapter):
         self, key: str, fields: dict[str, Any], approval: ApprovedWriteContext | None
     ) -> ExternalRecord:
         require_approval(approval)
+        _fail_if_configured(self.provider)
         return ExternalRecord(
             provider=self.provider,
             external_id=key,
@@ -168,6 +181,7 @@ class MockNotionAdapter(MockAdapter):
         approval: ApprovedWriteContext | None,
     ) -> ExternalRecord:
         require_approval(approval)
+        _fail_if_configured(self.provider)
         return ExternalRecord(
             provider=self.provider,
             external_id=page_id,
@@ -189,6 +203,7 @@ class MockSlackAdapter(MockAdapter):
         self, channel: str, text: str, approval: ApprovedWriteContext | None
     ) -> ExternalRecord:
         require_approval(approval)
+        _fail_if_configured(self.provider)
         return ExternalRecord(
             provider=self.provider,
             external_id="1.0",
@@ -204,6 +219,7 @@ class MockSlackAdapter(MockAdapter):
         approval: ApprovedWriteContext | None,
     ) -> ExternalRecord:
         require_approval(approval)
+        _fail_if_configured(self.provider)
         return ExternalRecord(
             provider=self.provider,
             external_id=timestamp,

@@ -51,6 +51,10 @@ python scripts/export_openapi.py
 
 The maintained API contract and team boundaries are documented in `docs/API.md` and `docs/ALIGNMENT.md`.
 
+Phase 8 adds workspace analytics, audit, timeline, SLA, integration-health projections,
+Prometheus runtime metrics, correlation-based traces, local backup/reset tools, and deterministic
+failure simulation.
+
 ## Local authentication
 
 Phase 2 adds local JWT authentication and workspace-scoped authorization. Before sharing a non-local environment, replace `JWT_SECRET` with a random value of at least 32 characters.
@@ -62,6 +66,25 @@ python scripts/seed_demo.py
 ```
 
 The seed command refuses to run unless `DEMO_OWNER_EMAIL` and a password of at least 12 characters are configured.
+
+Reset only the configured demo workspace (explicit confirmation is required), then reseed it:
+
+```bash
+python scripts/reset_demo.py --confirm
+python scripts/seed_demo.py
+```
+
+Create a local PostgreSQL backup using the installed `pg_dump` client:
+
+```bash
+python scripts/backup_local.py --docker
+```
+
+The Docker form guarantees that `pg_dump` matches the PostgreSQL server version. Omit `--docker`
+only when a compatible PostgreSQL client is installed on the host.
+
+Set `DEMO_FAILURE_PROVIDER=jira`, `notion`, or `slack` to force that mock write adapter to fail.
+Leave it blank for the normal deterministic success path. This is local demo/testing behavior only.
 
 ## Submit a manual mission
 

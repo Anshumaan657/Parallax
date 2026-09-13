@@ -45,6 +45,8 @@ class Settings(BaseSettings):
 
     execution_max_attempts: int = Field(default=3, ge=1, le=10)
     execution_lock_ttl_seconds: int = Field(default=300, ge=30, le=3600)
+    mission_sla_minutes: int = Field(default=60, ge=1, le=10_080)
+    demo_failure_provider: Literal["", "github", "jira", "notion", "slack"] = ""
 
     demo_owner_email: str = ""
     demo_owner_password: SecretStr = SecretStr("")

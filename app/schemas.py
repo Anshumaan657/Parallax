@@ -285,3 +285,62 @@ class DashboardStatsRead(BaseModel):
     blocked: int
     awaiting_approval: int
     project_health_pct: int
+
+
+class TimelineEventRead(BaseModel):
+    id: uuid.UUID
+    event_type: str
+    from_status: MissionStatus | None = None
+    to_status: MissionStatus | None = None
+    title: str
+    detail: str
+    actor_user_id: uuid.UUID | None = None
+    correlation_id: uuid.UUID | None = None
+    created_at: datetime
+
+
+class AuditEventRead(BaseModel):
+    id: uuid.UUID
+    mission_id: uuid.UUID | None
+    actor_user_id: uuid.UUID | None
+    event_type: str
+    correlation_id: uuid.UUID
+    payload: dict[str, Any]
+    created_at: datetime
+
+
+class MissionSLARead(BaseModel):
+    mission_id: uuid.UUID
+    status: MissionStatus
+    age_seconds: int
+    target_seconds: int
+    remaining_seconds: int
+    breached: bool
+
+
+class StatusCountRead(BaseModel):
+    status: MissionStatus
+    count: int
+
+
+class ProviderExecutionRead(BaseModel):
+    provider: IntegrationProvider
+    verified: int
+    failed: int
+
+
+class AnalyticsOverviewRead(BaseModel):
+    total_missions: int
+    completion_rate_pct: float
+    verification_rate_pct: float
+    average_completion_seconds: float | None
+    missions_by_status: list[StatusCountRead]
+    executions_by_provider: list[ProviderExecutionRead]
+
+
+class IntegrationHealthRead(BaseModel):
+    name: Literal["GitHub", "Jira", "Notion", "Slack"]
+    status: str
+    mode: Literal["mock", "real"]
+    last_checked_at: datetime | None
+    detail: str

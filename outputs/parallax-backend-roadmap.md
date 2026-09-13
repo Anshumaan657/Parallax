@@ -64,5 +64,7 @@ Status: complete and verified; awaiting commit
 
 ## Phase 8 — Analytics and demo reliability
 
+Status: complete and verified; awaiting commit
+
 - Mission timeline, activity, audit, integration health, SLA, and dashboard APIs
 - Metrics, traces, contract/integration/E2E tests, demo reset, backup, and failure simulation

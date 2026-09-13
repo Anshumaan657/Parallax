@@ -8,9 +8,9 @@
 - Phase 3: complete and committed as `e3f8027`
 - Phase 4: complete and committed as `1809c98`
 - Phase 5: complete and committed as `5030171`
-- Phase 6: complete and verified in the working tree
-- Phase 7: complete and verified in the working tree
-- Next phase: Phase 8 — analytics and demo reliability
+- Phase 6 and 7: complete and committed as `a5f141f`
+- Phase 8: complete and verified in the working tree; awaiting commit
+- Next milestone: frontend/Agent/deployment-team integration and live-vendor acceptance testing
 
 ## Phase 3 implementation
 
@@ -152,8 +152,8 @@ docker compose up --build -d
 ## Verification result
 
 - Ruff: passed
-- strict MyPy: passed for the app and seed command
-- Pytest: 26 passed, including approval decisions, policy rejection, idempotent execution, verification, partial failure, and recovery
+- strict MyPy: passed for the app and all operational scripts
+- Pytest: 30 passed, including analytics, workspace isolation, failure injection, approval decisions, idempotent execution, verification, partial failure, and recovery
 - Generated OpenAPI contract: refreshed
 - Target PostgreSQL revision: `20260913_0006 (head)`
 - Alembic schema drift check: no new upgrade operations
@@ -161,3 +161,13 @@ docker compose up --build -d
 - Readiness: `ready`; Prometheus API target: `up`
 - Manual Phase 5 smoke: mission reached `context_collected`, 3 evidence items, fallback assessment, 2 typed proposals, and 0 unknown citations
 - Worker jobs observed: zero failed and zero retried
+# Phase 8 frontend and QA handoff
+
+- Generate frontend types from `docs/openapi.json` after this phase.
+- Use `/api/missions/{id}/timeline` for the durable execution timeline.
+- Use `/api/missions/{id}/sla` for countdown/breach UI; do not calculate the target in the browser.
+- Use `/api/analytics/overview` for charts; every status/provider is returned even at zero.
+- Use `/api/audit-events` for a paginated audit screen and `/api/integrations/health` for detailed
+  integration state.
+- Include `X-Correlation-ID` when reporting a failure; the response `X-Trace-ID` matches it.
+- QA can set `DEMO_FAILURE_PROVIDER` only in mock mode to exercise partial/failed recovery.

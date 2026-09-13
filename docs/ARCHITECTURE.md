@@ -112,3 +112,18 @@ context_collected → waiting_for_approval
 ```
 
 Verified actions are never repeated during recovery. Partial failure preserves successes and exposes action-level status to frontend and testing teams.
+
+## Analytics and demo-reliability boundary
+
+Phase 8 builds read-only, workspace-scoped projections from PostgreSQL rather than introducing a
+second analytics database. Mission timeline and audit endpoints expose durable source records; SLA
+and overview endpoints calculate presentation-ready aggregates. Integration health uses the last
+persisted check and always returns GitHub, Jira, Notion, and Slack.
+
+Prometheus scrapes API request count, duration, failure, readiness, and build metadata locally.
+`X-Trace-ID` equals the request correlation UUID, which is also stored with audit events and emitted
+in structured logs. This provides traceable local execution without external telemetry hosting.
+
+Demo reliability tools are deliberately local and explicit: reset deletes only the configured
+workspace slug and requires `--confirm`; backup delegates to `pg_dump`; mock failure injection is
+off by default and can target Jira, Notion, or Slack without making vendor calls.

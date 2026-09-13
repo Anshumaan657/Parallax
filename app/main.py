@@ -12,7 +12,8 @@ from starlette.middleware.base import RequestResponseEndpoint
 from app.config import settings
 from app.database import close_database
 from app.logging import configure_logging
-from app.metrics import HTTP_DURATION, HTTP_REQUESTS
+from app.metrics import HTTP_DURATION, HTTP_FAILURES, HTTP_REQUESTS
+from app.routers.analytics import router as analytics_router
 from app.routers.approvals import router as approvals_router
 from app.routers.auth import router as auth_router
 from app.routers.dashboard import router as dashboard_router
@@ -65,6 +66,7 @@ async def request_context(request: Request, call_next: RequestResponseEndpoint) 
     try:
         response = await call_next(request)
     except Exception:
+        HTTP_FAILURES.labels(request.method, request.url.path).inc()
         logger.exception(
             "request_failed",
             method=request.method,
@@ -74,6 +76,7 @@ async def request_context(request: Request, call_next: RequestResponseEndpoint) 
         raise
     duration = perf_counter() - started
     response.headers["X-Correlation-ID"] = correlation_id
+    response.headers["X-Trace-ID"] = correlation_id
     HTTP_REQUESTS.labels(request.method, request.url.path, response.status_code).inc()
     HTTP_DURATION.labels(request.method, request.url.path).observe(duration)
     logger.info(
@@ -88,6 +91,7 @@ async def request_context(request: Request, call_next: RequestResponseEndpoint) 
 
 
 app.include_router(health_router)
+app.include_router(analytics_router)
 app.include_router(auth_router)
 app.include_router(workspaces_router)
 app.include_router(approvals_router)

@@ -190,6 +190,25 @@ Approval mutations require `owner`, `admin`, or `manager`. Decisions are one-tim
 
 Approval and its execution outbox intent commit atomically. The worker uses a Redis ownership lock plus a unique action idempotency key, skips already verified actions, limits retries, and reads Jira, Notion, or Slack back before marking success. Outcomes are `completed`, `partially_complete`, or `failed`; an API success without read-after-write evidence is never treated as verified.
 
+## Implemented in Phase 8
+
+| Method | Path | Purpose |
+|---|---|---|
+| `GET` | `/api/missions/{mission_id}/timeline` | Ordered, durable mission transitions |
+| `GET` | `/api/missions/{mission_id}/sla` | Mission age, target, remaining time, and breach state |
+| `GET` | `/api/audit-events` | Paginated workspace audit feed; filter by mission or event type |
+| `GET` | `/api/analytics/overview` | Mission completion and execution-verification aggregates |
+| `GET` | `/api/integrations/health` | Stored health status for GitHub, Jira, Notion, and Slack |
+
+All Phase 8 endpoints require authentication and are scoped to the workspace in the access token.
+Cross-workspace mission timeline/SLA reads return `404`. Audit pagination supports `limit` (1–200)
+and `offset`; analytics returns all mission statuses and all four providers, including zero counts, so
+frontend charts do not need to invent missing categories.
+
+Every API response includes `X-Correlation-ID` and `X-Trace-ID`. They contain the same UUID in this
+local architecture, letting frontend, QA, API logs, audit records, and worker records refer to one
+operation without requiring a cloud tracing service.
+
 ## Implemented in Phase 2
 
 Protected routes use:
