@@ -170,6 +170,7 @@ async def execute_mission(ctx: dict[str, Any], mission_id: str) -> str:
                         # K1.6: verified outcomes enter the knowledge base as
                         # VERIFIED source facts (read-after-write confirmation).
                         outcome_mission = await session.get(Mission, action.mission_id)
+                        assert outcome_mission is not None
                         await record_fact(
                             session,
                             outcome_mission,
@@ -202,6 +203,7 @@ async def execute_mission(ctx: dict[str, Any], mission_id: str) -> str:
                     # K1.6: failures are observed knowledge too — recorded so the
                     # agent sees them in the next context pack.
                     outcome_mission = await session.get(Mission, action.mission_id)
+                    assert outcome_mission is not None
                     await record_fact(
                         session,
                         outcome_mission,
