@@ -2,7 +2,7 @@
 
 Local-first Python backend for the Parallax MVP. It accepts missions entered by a PM or agent user; GitHub webhooks are not part of the current input flow.
 
-The Phase-1 stack contains FastAPI, a separate ARQ worker, PostgreSQL, Redis, Alembic migrations, structured JSON logging, Prometheus metrics, health/readiness checks, and OpenAPI documentation.
+The backend currently includes the local FastAPI/ARQ/PostgreSQL/Redis foundation, workspace authentication and authorization, and Phase 3 manual mission APIs with a durable transactional outbox. GitHub, Jira, Notion, and Slack adapters remain disconnected until Phase 4.
 
 ## Run the complete local stack
 
@@ -62,3 +62,17 @@ python scripts/seed_demo.py
 ```
 
 The seed command refuses to run unless `DEMO_OWNER_EMAIL` and a password of at least 12 characters are configured.
+
+## Submit a manual mission
+
+Register or log in, then send the access token to the mission API:
+
+```bash
+curl -X POST http://localhost:8000/api/missions \
+  -H "Authorization: Bearer <access-token>" \
+  -H "Idempotency-Key: demo-mission-1" \
+  -H "Content-Type: application/json" \
+  -d '{"prompt":"Prepare a release-readiness plan","project":"General"}'
+```
+
+The request returns `202`. Poll `GET /api/missions/{mission_id}` for timeline updates. In Phase 3 the worker intentionally stops at `planning`; no Agent or external integration is called yet.

@@ -12,6 +12,7 @@ from app.models import (
     Integration,
     IntegrationProvider,
     IntegrationStatus,
+    Project,
     User,
     Workspace,
     WorkspaceMembership,
@@ -79,6 +80,15 @@ async def register(
                 )
                 for provider in IntegrationProvider
             ]
+        )
+        session.add(
+            Project(
+                workspace_id=workspace.id,
+                name="General",
+                description="Default mission project",
+                icon="folder",
+                health_pct=80,
+            )
         )
         tokens = await issue_token_pair(session, user, workspace)
         await session.commit()

@@ -12,6 +12,7 @@ from app.models import (  # noqa: E402
     Integration,
     IntegrationProvider,
     IntegrationStatus,
+    Project,
     User,
     Workspace,
     WorkspaceMembership,
@@ -55,6 +56,23 @@ async def seed() -> None:
                     configuration={},
                 )
                 for provider in IntegrationProvider
+            ]
+        )
+        session.add_all(
+            [
+                Project(
+                    workspace_id=workspace.id,
+                    name=name,
+                    icon=icon,
+                    health_pct=health,
+                )
+                for name, icon, health in (
+                    ("General", "folder", 80),
+                    ("Payments", "wallet", 78),
+                    ("Platform", "layers", 62),
+                    ("Core", "cpu", 91),
+                    ("Mobile", "smartphone", 45),
+                )
             ]
         )
         await session.commit()

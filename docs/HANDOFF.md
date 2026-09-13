@@ -4,10 +4,28 @@
 
 - Branch: `feature/backend-development`
 - Phase 1: complete and committed as `b5ff4ec`
-- Phase 2: implemented and verified in the working tree; not committed or pushed
-- Next phase: Phase 3 — manual missions and frontend APIs
+- Phase 2: complete and committed as `16016b4`
+- Phase 3: implemented and verified in the working tree; not committed or pushed
+- Next phase: Phase 4 — four integration adapters
 
-## Phase 2 implementation
+## Phase 3 implementation
+
+Frontend/API endpoints:
+
+- `POST /api/missions`
+- `GET /api/missions`
+- `GET /api/missions/{mission_id}`
+- `POST /api/missions/{mission_id}/cancel`
+- `GET /api/dashboard/stats`
+- `GET /api/dashboard/activity`
+- `GET /api/dashboard/projects`
+- `GET /api/integrations`
+
+Persistence added for missions, ordered steps, state transitions, activity, immutable-style audit events, idempotency records, and transactional outbox jobs. Manual submission commits the initial mission and job intent atomically. The worker dispatches the outbox to ARQ with a stable job ID and advances the mission from `queued` to `planning`.
+
+The mission state machine rejects illegal transitions. Mission reads, dashboard projections, projects, integrations, idempotency keys, and correlation IDs are all workspace-scoped.
+
+## Existing Phase 2 foundation
 
 Models:
 
@@ -50,7 +68,7 @@ Workspace endpoints:
 
 ## Migration
 
-`20260913_0002_identity_and_core_data` follows the Phase-1 migration.
+`20260913_0003_manual_missions` follows the Phase-2 identity migration.
 
 ## Environment variables
 
@@ -70,25 +88,23 @@ python scripts/export_openapi.py
 docker compose up --build -d
 ```
 
-## Known limitations
+## Current boundary
 
-- Local registration is intentionally open for the local MVP; invitations and email verification are not implemented.
-- Access JWT signing uses a shared secret. Key rotation and asymmetric signing are deferred.
-- Integration rows store credential references only; encrypted credential persistence belongs with the integration phase.
-- Team/project/repository management endpoints are deferred until their first frontend use.
-- Refresh-session cleanup is deferred to the reliability phase.
+- The worker deliberately stops at `planning`; context collection and the Agent gateway are Phase 5.
+- Integration records are status placeholders; real/mock adapters and credential handling are Phase 4.
+- No external system is mutated and no approval or execution behavior is claimed in Phase 3.
+- Local registration remains intentionally open for the local MVP.
 
 ## Verification result
 
 - Ruff: passed
 - strict MyPy: passed for the app and seed command
-- Pytest: 9 passed
-- Existing PostgreSQL migration: `20260913_0002 (head)`
-- Fresh PostgreSQL migration: passed through `20260913_0002`
+- Pytest: 12 passed (including Phase 3 API, isolation, outbox, and worker tests)
+- Generated OpenAPI contract: refreshed
+- Existing PostgreSQL database: `20260913_0003 (head)`
+- Fresh PostgreSQL migration: passed from empty schema through `20260913_0003`
 - Alembic schema drift check: no new upgrade operations
-- Docker readiness: PostgreSQL, Redis, and worker all `up`
-- Manual registration/login smoke test: `201` / `200`
-
-## Phase 3 boundary
-
-Phase 3 should add manual mission persistence, state transitions, idempotency, audit events, ARQ enqueueing, and the exact dashboard/mission endpoints documented in `docs/API.md`. It must derive workspace and actor IDs from `RequestIdentity`; it must not accept them as trusted request-body authorization fields.
+- Docker: API healthy; PostgreSQL and Redis healthy; worker running
+- Readiness: `ready`; Prometheus API target: `up`
+- Manual smoke: registration `201`, mission submission `202`, durable worker reached `planning`, and exactly four integrations returned
+- Worker jobs observed: zero failed and zero retried

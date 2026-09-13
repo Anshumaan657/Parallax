@@ -46,7 +46,7 @@ Checks PostgreSQL, Redis, and the worker heartbeat. Returns `200` when all are u
 }
 ```
 
-## Frontend contract to implement in the mission phase
+## Implemented in Phase 3
 
 These paths match `parallax-mvp/frontend/src/api.js` from the shared Drive:
 
@@ -59,6 +59,7 @@ These paths match `parallax-mvp/frontend/src/api.js` from the shared Drive:
 | `GET` | `/api/missions` | Recent missions |
 | `POST` | `/api/missions` | Submit a manual PM/agent-user mission |
 | `GET` | `/api/missions/{mission_id}` | Poll mission timeline and result |
+| `POST` | `/api/missions/{mission_id}/cancel` | Cancel a non-terminal mission |
 
 The frontend should generate types from `docs/openapi.json`; it must not maintain a second handwritten response schema.
 
@@ -70,10 +71,10 @@ MissionCreate
   project: string = "General"
 
 MissionRead
-  id: integer
+  id: UUID string (treat as an opaque identifier)
   prompt: string
   project: string
-  status: queued | planning | waiting_for_approval | running |
+  status: queued | planning | context_collected | waiting_for_approval | running |
           completed | blocked | rejected | cancelled | partially_complete | failed
   progress_current: integer
   progress_total: integer
@@ -96,6 +97,38 @@ DashboardStats
 ```
 
 The Drive frontend currently styles `queued`, `running`, `completed`, `blocked`, and `failed`. The frontend team must add styles for approval, rejection, cancellation, and partial completion before those states are enabled.
+
+All Phase 3 routes require an access token. Mission creation and cancellation require the `owner`, `admin`, or `manager` role. Read routes are available to every workspace member. Every query is scoped to the workspace in the access token.
+
+### `POST /api/missions`
+
+Returns `202 Accepted` after the mission and durable job intent are committed together. The API does not call the Agent service inline. `Idempotency-Key` is optional for current frontend compatibility and strongly recommended. Reusing a key with the same body returns the existing mission; reusing it with another body returns `409`.
+
+```http
+POST /api/missions
+Authorization: Bearer <access-token>
+Idempotency-Key: <unique-client-generated-value>
+Content-Type: application/json
+
+{"prompt":"Prepare a release-readiness plan","project":"General"}
+```
+
+The worker moves a queued mission to `planning` and records the first timeline step. Phase 3 intentionally stops there: context collection and the Agent service gateway belong to Phase 5.
+
+### Mission reads and cancellation
+
+- `GET /api/missions?limit=20&offset=0` returns newest missions first. `limit` is 1–100.
+- `GET /api/missions/{mission_id}` returns one mission and its ordered steps. A mission outside the caller's workspace is returned as `404`.
+- `POST /api/missions/{mission_id}/cancel` returns the cancelled mission. Cancelling a terminal mission returns `409`.
+
+### Dashboard and integration reads
+
+- `GET /api/dashboard/stats` returns workspace-scoped mission counts and average project health.
+- `GET /api/dashboard/activity?limit=10&offset=0` returns newest audit-backed activity first.
+- `GET /api/dashboard/projects` returns valid project choices for mission creation.
+- `GET /api/integrations` always reports exactly GitHub, Jira, Notion, and Slack for the workspace.
+
+Common errors use `{"detail":"..."}` with `401`, `403`, `404`, `409`, or `422`. Responses include `X-Correlation-ID`; a valid UUID supplied in the request header is preserved.
 
 ## Implemented in Phase 2
 

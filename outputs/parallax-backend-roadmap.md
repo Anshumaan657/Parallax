@@ -2,6 +2,8 @@
 
 ## Phase 1 — Local FastAPI foundation
 
+Status: complete
+
 - FastAPI API and separate ARQ worker
 - PostgreSQL, Redis, and Prometheus in Docker Compose
 - Pydantic environment validation, JSON logs, health/readiness, and OpenAPI
@@ -11,15 +13,19 @@ Done when the stack runs locally and `GET /health` succeeds.
 
 ## Phase 2 — Workspace and core data
 
+Status: complete
+
 - Local JWT authentication and roles
 - Workspaces, users, teams, projects, repositories, integrations, and identity mappings
 - Workspace scoping in every query
 
 ## Phase 3 — Manual missions and frontend APIs
 
+Status: complete and verified; awaiting commit
+
 - `POST /api/missions`, list/detail/polling, dashboard, activity, projects, and integration status
 - Explicit mission state machine, idempotency, correlation IDs, audit events
-- Seed and mock endpoints matching the Drive frontend
+- Seeded project data and response contracts matching the Drive frontend
 
 ## Phase 4 — Four integration adapters
 
@@ -52,4 +58,3 @@ Done when the stack runs locally and `GET /health` succeeds.
 
 - Mission timeline, activity, audit, integration health, SLA, and dashboard APIs
 - Metrics, traces, contract/integration/E2E tests, demo reset, backup, and failure simulation
-

@@ -1,9 +1,10 @@
 import uuid
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
-from app.models import WorkspaceRole
+from app.models import MissionStatus, WorkspaceRole
 
 
 class ErrorResponse(BaseModel):
@@ -91,3 +92,68 @@ class MemberRead(BaseModel):
 
 class MemberRoleUpdate(BaseModel):
     role: WorkspaceRole
+
+
+class MissionCreate(BaseModel):
+    prompt: str = Field(min_length=3, max_length=10_000)
+    project: str = Field(default="General", min_length=1, max_length=120)
+
+    @field_validator("prompt", "project")
+    @classmethod
+    def strip_text(cls, value: str) -> str:
+        stripped = value.strip()
+        if not stripped:
+            raise ValueError("Value must not be blank")
+        return stripped
+
+
+class MissionStepRead(BaseModel):
+    id: uuid.UUID
+    sequence: int
+    name: str
+    status: str
+    detail: str
+    created_at: datetime
+
+
+class MissionRead(BaseModel):
+    id: uuid.UUID
+    prompt: str
+    project: str
+    status: MissionStatus
+    progress_current: int
+    progress_total: int
+    result_summary: str | None
+    steps: list[MissionStepRead]
+    created_at: datetime
+    updated_at: datetime
+
+
+class ActivityRead(BaseModel):
+    id: uuid.UUID
+    mission_id: uuid.UUID | None
+    icon: str
+    title: str
+    detail: str
+    created_at: datetime
+
+
+class ProjectRead(BaseModel):
+    id: uuid.UUID
+    name: str
+    icon: str
+    health_pct: int
+
+
+class IntegrationStatusRead(BaseModel):
+    name: Literal["GitHub", "Jira", "Notion", "Slack"]
+    connected: bool
+    detail: str
+
+
+class DashboardStatsRead(BaseModel):
+    active_tasks: int
+    completed_this_week: int
+    blocked: int
+    awaiting_approval: int
+    project_health_pct: int

@@ -1,7 +1,7 @@
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from time import perf_counter
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import structlog
 from fastapi import FastAPI, Request, Response
@@ -14,7 +14,10 @@ from app.database import close_database
 from app.logging import configure_logging
 from app.metrics import HTTP_DURATION, HTTP_REQUESTS
 from app.routers.auth import router as auth_router
+from app.routers.dashboard import router as dashboard_router
 from app.routers.health import router as health_router
+from app.routers.integrations import router as integrations_router
+from app.routers.missions import router as missions_router
 from app.routers.workspaces import router as workspaces_router
 
 configure_logging()
@@ -51,6 +54,11 @@ app.add_middleware(
 @app.middleware("http")
 async def request_context(request: Request, call_next: RequestResponseEndpoint) -> Response:
     correlation_id = request.headers.get("X-Correlation-ID", str(uuid4()))
+    try:
+        request.state.correlation_id = UUID(correlation_id)
+    except ValueError:
+        request.state.correlation_id = uuid4()
+        correlation_id = str(request.state.correlation_id)
     started = perf_counter()
     try:
         response = await call_next(request)
@@ -80,6 +88,9 @@ async def request_context(request: Request, call_next: RequestResponseEndpoint) 
 app.include_router(health_router)
 app.include_router(auth_router)
 app.include_router(workspaces_router)
+app.include_router(missions_router)
+app.include_router(dashboard_router)
+app.include_router(integrations_router)
 
 
 @app.get("/metrics", include_in_schema=False)

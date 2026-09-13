@@ -54,6 +54,20 @@ class IntegrationStatus(str, enum.Enum):
     ERROR = "error"
 
 
+class MissionStatus(str, enum.Enum):
+    QUEUED = "queued"
+    PLANNING = "planning"
+    CONTEXT_COLLECTED = "context_collected"
+    WAITING_FOR_APPROVAL = "waiting_for_approval"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    BLOCKED = "blocked"
+    REJECTED = "rejected"
+    CANCELLED = "cancelled"
+    PARTIALLY_COMPLETE = "partially_complete"
+    FAILED = "failed"
+
+
 class User(TimestampMixin, Base):
     __tablename__ = "users"
     __table_args__ = (
@@ -139,6 +153,8 @@ class Project(TimestampMixin, Base):
     )
     name: Mapped[str] = mapped_column(String(120))
     description: Mapped[str | None] = mapped_column(Text)
+    icon: Mapped[str] = mapped_column(String(50), default="folder")
+    health_pct: Mapped[int] = mapped_column(default=80)
 
 
 class Repository(TimestampMixin, Base):
@@ -244,3 +260,168 @@ class RefreshSession(TimestampMixin, Base):
     replaced_by_session_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("refresh_sessions.id", ondelete="SET NULL")
     )
+
+
+class Mission(TimestampMixin, Base):
+    __tablename__ = "missions"
+    __table_args__ = (
+        Index("ix_missions_workspace_created", "workspace_id", "created_at"),
+        Index("ix_missions_workspace_status", "workspace_id", "status"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    workspace_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("workspaces.id", ondelete="CASCADE"), index=True
+    )
+    created_by_user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="RESTRICT"), index=True
+    )
+    project_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("projects.id", ondelete="RESTRICT"), index=True
+    )
+    prompt: Mapped[str] = mapped_column(Text)
+    project_name: Mapped[str] = mapped_column(String(120))
+    status: Mapped[MissionStatus] = mapped_column(
+        Enum(
+            MissionStatus,
+            name="mission_status",
+            values_callable=lambda values: [value.value for value in values],
+        ),
+        default=MissionStatus.QUEUED,
+    )
+    progress_current: Mapped[int] = mapped_column(default=0)
+    progress_total: Mapped[int] = mapped_column(default=1)
+    result_summary: Mapped[str | None] = mapped_column(Text)
+    correlation_id: Mapped[uuid.UUID] = mapped_column(index=True)
+    version: Mapped[int] = mapped_column(default=1)
+
+    steps: Mapped[list[MissionStep]] = relationship(
+        back_populates="mission", cascade="all, delete-orphan", order_by="MissionStep.sequence"
+    )
+
+
+class MissionStep(TimestampMixin, Base):
+    __tablename__ = "mission_steps"
+    __table_args__ = (UniqueConstraint("mission_id", "sequence", name="uq_mission_step_sequence"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    workspace_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("workspaces.id", ondelete="CASCADE"), index=True
+    )
+    mission_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("missions.id", ondelete="CASCADE"), index=True
+    )
+    sequence: Mapped[int]
+    name: Mapped[str] = mapped_column(String(120))
+    status: Mapped[str] = mapped_column(String(40))
+    detail: Mapped[str] = mapped_column(Text, default="")
+
+    mission: Mapped[Mission] = relationship(back_populates="steps")
+
+
+class MissionTransition(Base):
+    __tablename__ = "mission_transitions"
+    __table_args__ = (Index("ix_transition_mission_created", "mission_id", "created_at"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    workspace_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("workspaces.id", ondelete="CASCADE"), index=True
+    )
+    mission_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("missions.id", ondelete="CASCADE"), index=True
+    )
+    from_status: Mapped[MissionStatus | None] = mapped_column(
+        Enum(
+            MissionStatus,
+            name="mission_status",
+            values_callable=lambda values: [value.value for value in values],
+        )
+    )
+    to_status: Mapped[MissionStatus] = mapped_column(
+        Enum(
+            MissionStatus,
+            name="mission_status",
+            values_callable=lambda values: [value.value for value in values],
+        )
+    )
+    reason: Mapped[str] = mapped_column(Text)
+    actor_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), index=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class ActivityRecord(Base):
+    __tablename__ = "activity_records"
+    __table_args__ = (Index("ix_activity_workspace_created", "workspace_id", "created_at"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    workspace_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("workspaces.id", ondelete="CASCADE"), index=True
+    )
+    mission_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("missions.id", ondelete="CASCADE"), index=True
+    )
+    icon: Mapped[str] = mapped_column(String(50), default="mission")
+    title: Mapped[str] = mapped_column(String(160))
+    detail: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class AuditEvent(Base):
+    __tablename__ = "audit_events"
+    __table_args__ = (Index("ix_audit_workspace_created", "workspace_id", "created_at"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    workspace_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("workspaces.id", ondelete="CASCADE"), index=True
+    )
+    actor_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), index=True
+    )
+    mission_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("missions.id", ondelete="CASCADE"), index=True
+    )
+    event_type: Mapped[str] = mapped_column(String(120), index=True)
+    correlation_id: Mapped[uuid.UUID] = mapped_column(index=True)
+    payload: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class IdempotencyRecord(TimestampMixin, Base):
+    __tablename__ = "idempotency_records"
+    __table_args__ = (UniqueConstraint("workspace_id", "key", name="uq_idempotency_workspace_key"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    workspace_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("workspaces.id", ondelete="CASCADE"), index=True
+    )
+    key: Mapped[str] = mapped_column(String(128))
+    request_hash: Mapped[str] = mapped_column(String(64))
+    resource_type: Mapped[str] = mapped_column(String(50))
+    resource_id: Mapped[uuid.UUID]
+
+
+class OutboxJob(TimestampMixin, Base):
+    __tablename__ = "outbox_jobs"
+    __table_args__ = (Index("ix_outbox_status_created", "status", "created_at"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    workspace_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("workspaces.id", ondelete="CASCADE"), index=True
+    )
+    mission_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("missions.id", ondelete="CASCADE"), index=True
+    )
+    job_type: Mapped[str] = mapped_column(String(80))
+    payload: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    status: Mapped[str] = mapped_column(String(30), default="pending")
+    attempts: Mapped[int] = mapped_column(default=0)
+    dispatched_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_error: Mapped[str | None] = mapped_column(Text)
