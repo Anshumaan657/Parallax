@@ -1,36 +1,56 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Parallax frontend
 
-## Getting Started
+Parallax is an agent-control dashboard for creating engineering missions and following their execution across GitHub, Jira, Notion, and Slack. This repository contains the hackathon frontend described by the supplied product and integration documents.
 
-First, run the development server:
+## Run locally
 
 ```bash
+npm install
+copy .env.example .env.local
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000). The root route redirects to `/dashboard`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Mock mode is enabled by default, so the complete UI can be demonstrated without the backend. Created demo missions advance from queued to running to completed and are clearly labeled as simulated.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Connect the FastAPI backend
 
-## Learn More
+Set these values in `.env.local`:
 
-To learn more about Next.js, take a look at the following resources:
+```text
+NEXT_PUBLIC_API_URL=http://localhost:8000
+NEXT_PUBLIC_MOCK_MODE=false
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+The frontend consumes:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- `GET /api/dashboard/stats`
+- `GET /api/dashboard/activity`
+- `GET /api/dashboard/projects`
+- `GET /api/integrations`
+- `GET /api/missions`
+- `GET /api/missions/:id`
+- `POST /api/missions`
 
-## Deploy on Vercel
+Responses are validated and normalized in `src/lib/domain.ts` and `src/lib/api.ts`. Active missions poll while queued or running; the query cache is invalidated after mission creation.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Product routes
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- `/dashboard` — truthful operational overview, mission composer, recent work, projects, integrations, activity, and quick actions.
+- `/missions` — searchable and filterable mission history.
+- `/missions/:id` — mission summary, step trace, timestamps, outputs, and recovery actions.
+- `/projects` — project health overview.
+- `/integrations` — connection status; management controls remain visibly unavailable until supported.
+
+## Quality checks
+
+```bash
+npm run lint
+npx tsc --noEmit
+npm run build
+```
+
+## Design contract
+
+`brand-spec.md`, `direction-approved.md`, and `.hallmark/preflight.json` record the approved Light Control Room direction, token rules, responsive behavior, and pre-implementation critique. Future approval, risk review, context-pack, and realtime features are reserved in the domain capability map but are not presented as working functionality.

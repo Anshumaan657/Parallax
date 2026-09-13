@@ -1,26 +1,135 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+
+/* Hallmark · pre-emit critique: P5 H5 E4 S5 R5 V4
+ * macrostructure: operational workbench · theme: Light Control Room
+ * accent: blue-green · studied: yes · DNA-source: user reference image
+ */
+
+@custom-variant dark (&:is(.dark *));
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --radius: 0.65rem;
+  --background: oklch(0.972 0.006 92);
+  --foreground: oklch(0.235 0.018 246);
+  --card: oklch(0.995 0.003 92);
+  --card-foreground: oklch(0.235 0.018 246);
+  --popover: oklch(0.995 0.003 92);
+  --popover-foreground: oklch(0.235 0.018 246);
+  --primary: oklch(0.49 0.096 190);
+  --primary-foreground: oklch(0.985 0.004 92);
+  --secondary: oklch(0.935 0.01 92);
+  --secondary-foreground: oklch(0.31 0.024 246);
+  --muted: oklch(0.938 0.008 92);
+  --muted-foreground: oklch(0.49 0.025 246);
+  --accent: oklch(0.914 0.03 186);
+  --accent-foreground: oklch(0.31 0.06 188);
+  --destructive: oklch(0.57 0.19 27);
+  --border: oklch(0.87 0.012 92);
+  --input: oklch(0.87 0.012 92);
+  --ring: oklch(0.55 0.105 190);
+  --surface-raised: oklch(0.985 0.004 92);
+  --surface-inset: oklch(0.95 0.008 92);
+  --sidebar: oklch(0.225 0.028 255);
+  --sidebar-foreground: oklch(0.93 0.008 250);
+  --sidebar-muted: oklch(0.69 0.022 250);
+  --sidebar-border: oklch(0.32 0.028 255);
+  --sidebar-accent: oklch(0.34 0.055 217);
+  --success: oklch(0.58 0.12 159);
+  --success-soft: oklch(0.94 0.04 157);
+  --warning: oklch(0.68 0.13 76);
+  --warning-soft: oklch(0.96 0.04 83);
+  --info: oklch(0.58 0.12 238);
+  --info-soft: oklch(0.94 0.025 238);
+  --danger-soft: oklch(0.95 0.03 25);
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-inset: var(--surface-inset);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-muted: var(--sidebar-muted);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+  --color-danger-soft: var(--danger-soft);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* { border-color: var(--border); }
+
+html,
+body {
+  min-height: 100%;
+  overflow-x: clip;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+button,
+a,
+input,
+textarea,
+select { -webkit-tap-highlight-color: transparent; }
+
+button,
+a {
+  transition-duration: 150ms;
+  transition-property: color, background-color, border-color, opacity, box-shadow;
+}
+
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: var(--accent);
+  color: var(--foreground);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
