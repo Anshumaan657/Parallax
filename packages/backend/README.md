@@ -47,9 +47,13 @@ Configuration (env vars):
 | Method | Path | Description |
 |---|---|---|
 | GET | `/health` | Liveness + Agent Core URL |
-| POST | `/missions` | Forward a natural-language mission (`{mission, missionId?}`) |
-| GET | `/missions/{id}` | Mission status + full state |
-| POST | `/missions/{id}/decision` | PM decision (`{decision: "approve" \| "reject"}`) |
+| POST | `/api/v1/missions` | Start a mission (`{mission}`); the backend generates the mission ID (uuid4) |
+| GET | `/api/v1/missions/{id}` | Normalized mission status incl. `currentStep` and `progress` (%) |
+| POST | `/api/v1/missions/{id}/approve` | Approve the pending mission; Agent Core resumes the same thread |
+| POST | `/api/v1/missions/{id}/reject` | Reject the pending mission |
+
+Mission statuses: `planning`, `waiting_for_approval`, `running`,
+`completed`, `partially_complete`, `failed`, `rejected`.
 
 ## Tests
 

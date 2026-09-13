@@ -53,15 +53,24 @@ class AgentCoreClient:
         """GET /missions/{id} — fetch stored mission status and state."""
         return await self._request("GET", f"/missions/{mission_id}")
 
-    async def decide_mission(
+    async def approve_mission(
         self,
         mission_id: str,
-        decision: str,
     ) -> dict[str, Any]:
-        """POST /missions/{id}/approve or /missions/{id}/reject."""
+        """POST /missions/{id}/approve — resume the agent thread."""
         return await self._request(
             "POST",
-            f"/missions/{mission_id}/{decision}",
+            f"/missions/{mission_id}/approve",
+        )
+
+    async def reject_mission(
+        self,
+        mission_id: str,
+    ) -> dict[str, Any]:
+        """POST /missions/{id}/reject — resume with a rejection."""
+        return await self._request(
+            "POST",
+            f"/missions/{mission_id}/reject",
         )
 
     async def _request(

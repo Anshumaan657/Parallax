@@ -1,6 +1,11 @@
 import http from "node:http";
 import { Command } from "@langchain/langgraph";
 import { agentGraph } from "./graph/graph.js";
+import {
+  getProgress,
+  type MissionResponse,
+  type MissionStatus,
+} from "./types/mission.js";
 
 const PORT = Number(process.env.AGENT_PORT ?? "4010");
 
@@ -75,6 +80,48 @@ function buildMissionInput(
   };
 }
 
+type MissionStateLike = Record<string, any>;
+
+function deriveStatus(
+  state: MissionStateLike,
+  interrupted: boolean,
+): MissionStatus {
+  if (
+    state.approvalStatus === "pending" ||
+    interrupted
+  ) {
+    return "waiting_for_approval";
+  }
+
+  if (state.errors.length > 0) {
+    return "failed";
+  }
+
+  return "running";
+}
+
+function buildMissionResponse(
+  missionId: string,
+  state: MissionStateLike,
+  status: MissionStatus,
+): MissionResponse {
+  return {
+    missionId,
+    status,
+    currentStep: state.currentStep,
+    progress: getProgress(state.currentStep),
+    approvalStatus: state.approvalStatus,
+    policyRecommendation:
+      state.policyRecommendation ?? null,
+    proposedActions: state.proposedActions ?? [],
+    executionResults: state.executionResults ?? [],
+    verificationResults:
+      state.verificationResults ?? [],
+    slackSummary: state.slackSummary ?? "",
+    errors: state.errors ?? [],
+  };
+}
+
 const server = http.createServer(
   async (request, response) => {
     try {
@@ -94,6 +141,18 @@ const server = http.createServer(
         request.url ?? "/",
         `http://${request.headers.host ?? "localhost"}`,
       );
+
+      if (
+        request.method === "GET" &&
+        url.pathname === "/health"
+      ) {
+        json(response, 200, {
+          status: "ok",
+          service: "agent-core",
+        });
+
+        return;
+      }
 
       if (
         request.method === "POST" &&
@@ -130,29 +189,25 @@ const server = http.createServer(
           "__interrupt__" in state,
         );
 
-        const status =
-          state.approvalStatus === "pending" ||
-          interrupted
-            ? "waiting_for_approval"
-            : state.errors.length > 0
-              ? "failed"
-              : "running";
+        const status = deriveStatus(
+          state,
+          interrupted,
+        );
 
         missions.set(missionId, {
           status,
           state,
         });
 
-        json(response, 202, {
-          missionId,
-          status,
-          currentStep: state.currentStep,
-          proposedActions:
-            state.proposedActions,
-          policyDecision:
-            state.policyDecision,
-          errors: state.errors,
-        });
+        json(
+          response,
+          202,
+          buildMissionResponse(
+            missionId,
+            state,
+            status,
+          ),
+        );
 
         return;
       }
@@ -177,10 +232,15 @@ const server = http.createServer(
           return;
         }
 
-        json(response, 200, {
-          missionId,
-          ...mission,
-        });
+        json(
+          response,
+          200,
+          buildMissionResponse(
+            missionId,
+            mission.state as MissionStateLike,
+            mission.status as MissionStatus,
+          ),
+        );
 
         return;
       }
@@ -222,34 +282,33 @@ const server = http.createServer(
             },
           );
 
-        const status =
+        const status: MissionStatus =
           decision === "reject"
-            ? "completed"
+            ? "rejected"
             : state.errors.length > 0
               ? "failed"
-              : "completed";
+              : (
+                  state.executionResults as Array<{
+                    success?: boolean;
+                  }>
+                ).some((result) => !result.success)
+                ? "partially_complete"
+                : "completed";
 
         missions.set(missionId, {
           status,
           state,
         });
 
-        json(response, 200, {
-          missionId,
-          status,
-          currentStep: state.currentStep,
-          policyRecommendation:
-            state.policyRecommendation,
-          proposedActions:
-            state.proposedActions,
-          executionResults:
-            state.executionResults,
-          verificationResults:
-            state.verificationResults,
-          slackSummary:
-            state.slackSummary,
-          errors: state.errors,
-        });
+        json(
+          response,
+          200,
+          buildMissionResponse(
+            missionId,
+            state,
+            status,
+          ),
+        );
 
         return;
       }

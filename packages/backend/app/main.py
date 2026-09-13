@@ -13,6 +13,7 @@ NOT here.
 from __future__ import annotations
 
 from typing import Any, AsyncIterator
+from uuid import uuid4
 
 from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.responses import JSONResponse
@@ -53,16 +54,19 @@ class MissionRequest(BaseModel):
 
 
 class MissionAck(BaseModel):
+    """Normalized mission response relayed from Agent Core."""
+
     missionId: str
     status: str
     currentStep: str | None = None
+    progress: int = 0
+    approvalStatus: str = "not_required"
+    policyRecommendation: Any = None
     proposedActions: list[Any] = Field(default_factory=list)
-    policyDecision: Any = None
+    executionResults: list[Any] = Field(default_factory=list)
+    verificationResults: list[Any] = Field(default_factory=list)
+    slackSummary: str = ""
     errors: list[str] = Field(default_factory=list)
-
-
-class MissionDecisionRequest(BaseModel):
-    decision: str = Field(pattern="^(approve|reject)$")
 
 
 # --------------------------------------------------------------------------
@@ -79,7 +83,7 @@ async def health() -> dict[str, str]:
 
 
 @app.post(
-    "/missions",
+    "/api/v1/missions",
     status_code=status.HTTP_202_ACCEPTED,
     response_model=MissionAck,
 )
@@ -87,11 +91,13 @@ async def create_mission(
     request: MissionRequest,
     client: AgentCoreClient = Depends(get_agent_core_client),
 ) -> Any:
-    """Forward a natural-language mission to Agent Core."""
+    """Start a mission. The backend owns the mission ID (uuid4)."""
+    mission_id = str(uuid4())
+
     try:
         return await client.create_mission(
             mission=request.mission,
-            mission_id=request.missionId,
+            mission_id=mission_id,
         )
     except AgentCoreError as exc:
         raise HTTPException(
@@ -100,7 +106,7 @@ async def create_mission(
         ) from exc
 
 
-@app.get("/missions/{mission_id}")
+@app.get("/api/v1/missions/{mission_id}")
 async def get_mission(
     mission_id: str,
     client: AgentCoreClient = Depends(get_agent_core_client),
@@ -112,18 +118,26 @@ async def get_mission(
         raise _map_agent_core_error(exc) from exc
 
 
-@app.post("/missions/{mission_id}/decision")
-async def decide_mission(
+@app.post("/api/v1/missions/{mission_id}/approve")
+async def approve_mission(
     mission_id: str,
-    request: MissionDecisionRequest,
     client: AgentCoreClient = Depends(get_agent_core_client),
 ) -> Any:
-    """Relay the PM's approve/reject decision to Agent Core."""
+    """Approve the pending mission; Agent Core resumes the same thread."""
     try:
-        return await client.decide_mission(
-            mission_id=mission_id,
-            decision=request.decision,
-        )
+        return await client.approve_mission(mission_id)
+    except AgentCoreError as exc:
+        raise _map_agent_core_error(exc) from exc
+
+
+@app.post("/api/v1/missions/{mission_id}/reject")
+async def reject_mission(
+    mission_id: str,
+    client: AgentCoreClient = Depends(get_agent_core_client),
+) -> Any:
+    """Reject the pending mission; Agent Core resumes with rejection."""
+    try:
+        return await client.reject_mission(mission_id)
     except AgentCoreError as exc:
         raise _map_agent_core_error(exc) from exc
 

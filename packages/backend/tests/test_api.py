@@ -6,6 +6,8 @@ require the Agent Core server or live credentials.
 
 from __future__ import annotations
 
+import json
+import uuid
 from collections.abc import Iterator
 from typing import Any
 
@@ -36,6 +38,16 @@ MISSION_ACK = {
     "missionId": "mission-1",
     "status": "waiting_for_approval",
     "currentStep": "approval_gate",
+    "progress": 44,
+    "approvalStatus": "pending",
+    "policyRecommendation": {
+        "recommendation": (
+            "Create a Jira task for the payment retry work."
+        ),
+        "rationale": "Supported by the document.",
+        "suggestedJiraSummary": "Implement payment retry",
+        "suggestedJiraDescription": "Add retry handling to payments.",
+    },
     "proposedActions": [
         {
             "id": "action-1",
@@ -46,24 +58,32 @@ MISSION_ACK = {
             "status": "proposed",
         },
     ],
-    "policyDecision": {
-        "allowed": True,
-        "requiresApproval": True,
-        "reason": "High-risk changes require approval.",
-    },
+    "executionResults": [],
+    "verificationResults": [],
+    "slackSummary": "",
     "errors": [],
 }
 
 MISSION_STATE = {
     "missionId": "mission-1",
     "status": "waiting_for_approval",
-    "state": {"currentStep": "approval_gate", "errors": []},
+    "currentStep": "approval_gate",
+    "progress": 44,
+    "approvalStatus": "pending",
+    "policyRecommendation": None,
+    "proposedActions": [],
+    "executionResults": [],
+    "verificationResults": [],
+    "slackSummary": "",
+    "errors": [],
 }
 
 DECISION_RESULT = {
     "missionId": "mission-1",
     "status": "completed",
     "currentStep": "audit_actions",
+    "progress": 100,
+    "approvalStatus": "approved",
     "policyRecommendation": None,
     "proposedActions": [],
     "executionResults": [],
@@ -78,7 +98,12 @@ def route_handler(request: httpx.Request) -> httpx.Response:
         if b"unreachable" in request.content:
             return httpx.Response(500, json={"error": "boom"})
 
-        return httpx.Response(202, json=MISSION_ACK)
+        payload = json.loads(request.content)
+        ack = {
+            **MISSION_ACK,
+            "missionId": payload.get("missionId", "mission-1"),
+        }
+        return httpx.Response(202, json=ack)
 
     if request.method == "GET" and request.url.path == "/missions/mission-1":
         return httpx.Response(200, json=MISSION_STATE)
@@ -96,7 +121,10 @@ def route_handler(request: httpx.Request) -> httpx.Response:
         request.method == "POST"
         and request.url.path == "/missions/mission-1/reject"
     ):
-        return httpx.Response(200, json=DECISION_RESULT)
+        return httpx.Response(
+            200,
+            json={**DECISION_RESULT, "status": "rejected"},
+        )
 
     return httpx.Response(404, json={"error": "Route not found"})
 
@@ -117,75 +145,75 @@ def test_health(api: TestClient) -> None:
     assert "agentCore" in body
 
 
-def test_create_mission_forwards_to_agent_core(api: TestClient) -> None:
+def test_create_mission_generates_uuid_and_relays_ack(
+    api: TestClient,
+) -> None:
     response = api.post(
-        "/missions",
+        "/api/v1/missions",
         json={"mission": "Review PR 142 in payments-service"},
     )
 
     assert response.status_code == 202
     body = response.json()
-    assert body["missionId"] == "mission-1"
+
+    # The backend owns the mission ID.
+    uuid.UUID(body["missionId"])
+
     assert body["status"] == "waiting_for_approval"
-    assert body["policyDecision"]["requiresApproval"] is True
+    assert body["currentStep"] == "approval_gate"
+    assert body["progress"] == 44
+    assert body["approvalStatus"] == "pending"
+    assert (
+        body["policyRecommendation"]["suggestedJiraSummary"]
+        == "Implement payment retry"
+    )
     assert body["errors"] == []
 
 
 def test_create_mission_requires_mission_text(api: TestClient) -> None:
-    response = api.post("/missions", json={})
+    response = api.post("/api/v1/missions", json={})
 
     assert response.status_code == 422
 
 
 def test_get_mission(api: TestClient) -> None:
-    response = api.get("/missions/mission-1")
+    response = api.get("/api/v1/missions/mission-1")
 
     assert response.status_code == 200
     body = response.json()
     assert body["missionId"] == "mission-1"
-    assert body["state"]["currentStep"] == "approval_gate"
+    assert body["currentStep"] == "approval_gate"
+    assert body["progress"] == 44
 
 
 def test_get_missing_mission_maps_to_404(api: TestClient) -> None:
-    response = api.get("/missions/missing")
+    response = api.get("/api/v1/missions/missing")
 
     assert response.status_code == 404
 
 
-def test_approve_decision(api: TestClient) -> None:
-    response = api.post(
-        "/missions/mission-1/decision",
-        json={"decision": "approve"},
-    )
+def test_approve_mission(api: TestClient) -> None:
+    response = api.post("/api/v1/missions/mission-1/approve")
 
     assert response.status_code == 200
     body = response.json()
     assert body["status"] == "completed"
+    assert body["progress"] == 100
     assert body["currentStep"] == "audit_actions"
 
 
-def test_reject_decision(api: TestClient) -> None:
-    response = api.post(
-        "/missions/mission-1/decision",
-        json={"decision": "reject"},
-    )
+def test_reject_mission(api: TestClient) -> None:
+    response = api.post("/api/v1/missions/mission-1/reject")
 
     assert response.status_code == 200
-    assert response.json()["missionId"] == "mission-1"
-
-
-def test_invalid_decision_is_rejected(api: TestClient) -> None:
-    response = api.post(
-        "/missions/mission-1/decision",
-        json={"decision": "maybe"},
-    )
-
-    assert response.status_code == 422
+    body = response.json()
+    assert body["status"] == "rejected"
+    assert body["missionId"] == "mission-1"
 
 
 def test_agent_core_failure_maps_to_502(api: TestClient) -> None:
     response = api.post(
-        "/missions",
+        "/api/v1/missions",
         json={"mission": "unreachable"},
     )
 
