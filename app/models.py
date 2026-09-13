@@ -10,6 +10,7 @@ from sqlalchemy import (
     Boolean,
     DateTime,
     Enum,
+    Float,
     ForeignKey,
     Index,
     String,
@@ -637,3 +638,92 @@ class VerificationRecord(Base):
     status: Mapped[str] = mapped_column(String(30))
     evidence: Mapped[dict[str, Any]] = mapped_column(JSON)
     checked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class KnowledgeFactKind(str, enum.Enum):
+    """Observed knowledge comes from sources; derived knowledge comes from the agent."""
+
+    SOURCE_FACT = "source_fact"
+    DECISION = "decision"
+
+
+class KnowledgeSource(str, enum.Enum):
+    """Where a knowledge fact originated. AGENT marks derived (model-generated) knowledge."""
+
+    GITHUB = "github"
+    JIRA = "jira"
+    NOTION = "notion"
+    SLACK = "slack"
+    AGENT = "agent"
+
+
+class KnowledgeFactStatus(str, enum.Enum):
+    """Provenance lifecycle. Facts are never deleted or updated in place: they are superseded."""
+
+    OBSERVED = "observed"
+    VERIFIED = "verified"
+    SUPERSEDED = "superseded"
+    CONFLICTED = "conflicted"
+
+
+class KnowledgeFact(TimestampMixin, Base):
+    """One append-only entry in the mission's operational knowledge base.
+
+    Observed facts (kind=source_fact) record what an integration actually
+    returned. Derived facts (kind=decision) record what the agent concluded,
+    and are never treated as source truth. Stale facts are marked superseded
+    (or conflicted) by a newer observation for the same subject; history is
+    never rewritten.
+    """
+
+    __tablename__ = "knowledge_facts"
+    __table_args__ = (
+        Index("ix_knowledge_facts_mission_status", "mission_id", "status"),
+        Index("ix_knowledge_facts_mission_subject", "mission_id", "kind", "source", "source_ref"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    workspace_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("workspaces.id", ondelete="CASCADE"), index=True
+    )
+    mission_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("missions.id", ondelete="CASCADE"), index=True
+    )
+    kind: Mapped[KnowledgeFactKind] = mapped_column(
+        Enum(
+            KnowledgeFactKind,
+            name="knowledge_fact_kind",
+            values_callable=lambda values: [value.value for value in values],
+        )
+    )
+    source: Mapped[KnowledgeSource] = mapped_column(
+        Enum(
+            KnowledgeSource,
+            name="knowledge_source",
+            values_callable=lambda values: [value.value for value in values],
+        )
+    )
+    source_ref: Mapped[str] = mapped_column(
+        String(255), default="", server_default="", nullable=False
+    )
+    fact: Mapped[str] = mapped_column(Text)
+    data: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    observed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    status: Mapped[KnowledgeFactStatus] = mapped_column(
+        Enum(
+            KnowledgeFactStatus,
+            name="knowledge_fact_status",
+            values_callable=lambda values: [value.value for value in values],
+        ),
+        default=KnowledgeFactStatus.OBSERVED,
+    )
+    superseded_by_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("knowledge_facts.id", ondelete="SET NULL")
+    )
+    agent_run_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("agent_runs.id", ondelete="SET NULL")
+    )
+    confidence: Mapped[float | None] = mapped_column(Float)

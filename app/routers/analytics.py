@@ -1,3 +1,4 @@
+import json
 import uuid
 from datetime import UTC, datetime
 from typing import Any
@@ -11,13 +12,16 @@ from app.database import get_session
 from app.dependencies import RequestIdentity, get_current_identity
 from app.models import (
     ActionProposal,
+    ApprovalBundle,
     AuditEvent,
     ExecutionRecord,
     Integration,
     IntegrationProvider,
+    KnowledgeFact,
     Mission,
     MissionStatus,
     MissionTransition,
+    VerificationRecord,
 )
 from app.schemas import (
     AnalyticsOverviewRead,
@@ -55,6 +59,37 @@ async def _mission(
     return mission
 
 
+def _compact_detail(value: Any, limit: int = 300) -> str:
+    return json.dumps(value, sort_keys=True, default=str)[:limit]
+
+
+# Deterministic tiebreak for events sharing a timestamp: transitions are
+# the macro steps, the other event types are the details within them.
+_EVENT_ORDER = {
+    "mission.transition": 0,
+    "approval.bundle": 1,
+    "knowledge.fact": 2,
+    "execution": 3,
+    "verification": 4,
+}
+
+# Within tied transitions, order by lifecycle position (databases with
+# second-precision timestamps cannot distinguish them otherwise).
+_TRANSITION_RANK = {
+    MissionStatus.QUEUED: 0,
+    MissionStatus.PLANNING: 1,
+    MissionStatus.CONTEXT_COLLECTED: 2,
+    MissionStatus.WAITING_FOR_APPROVAL: 3,
+    MissionStatus.RUNNING: 4,
+    MissionStatus.PARTIALLY_COMPLETE: 5,
+    MissionStatus.BLOCKED: 5,
+    MissionStatus.COMPLETED: 6,
+    MissionStatus.REJECTED: 6,
+    MissionStatus.CANCELLED: 6,
+    MissionStatus.FAILED: 6,
+}
+
+
 @router.get(
     "/missions/{mission_id}/timeline",
     response_model=list[TimelineEventRead],
@@ -66,7 +101,15 @@ async def mission_timeline(
     identity: RequestIdentity = Depends(get_current_identity),
     session: AsyncSession = Depends(get_session),
 ) -> list[TimelineEventRead]:
+    """Merged, chronological mission timeline.
+
+    Every durable trace of what happened inside one mission, in order:
+    status transitions, knowledge-base facts, action executions,
+    verifications, and approval decisions.
+    """
     await _mission(session, identity.workspace.id, mission_id)
+    events: list[tuple[datetime, int, int, str, TimelineEventRead]] = []
+
     transitions = list(
         await session.scalars(
             select(MissionTransition)
@@ -77,19 +120,137 @@ async def mission_timeline(
             .order_by(MissionTransition.created_at, MissionTransition.id)
         )
     )
-    return [
-        TimelineEventRead(
-            id=item.id,
-            event_type="mission.transition",
-            from_status=item.from_status,
-            to_status=item.to_status,
-            title=f"Mission {item.to_status.value}",
-            detail=item.reason,
-            actor_user_id=item.actor_user_id,
-            created_at=item.created_at,
+    for item in transitions:
+        events.append(
+            (
+                item.created_at,
+                _EVENT_ORDER["mission.transition"],
+                _TRANSITION_RANK[item.to_status],
+                str(item.id),
+                TimelineEventRead(
+                    id=item.id,
+                    event_type="mission.transition",
+                    from_status=item.from_status,
+                    to_status=item.to_status,
+                    title=f"Mission {item.to_status.value}",
+                    detail=item.reason,
+                    actor_user_id=item.actor_user_id,
+                    created_at=item.created_at,
+                ),
+            )
         )
-        for item in transitions
-    ]
+
+    facts = list(
+        await session.scalars(
+            select(KnowledgeFact).where(
+                KnowledgeFact.workspace_id == identity.workspace.id,
+                KnowledgeFact.mission_id == mission_id,
+            )
+        )
+    )
+    for fact in facts:
+        events.append(
+            (
+                fact.observed_at,
+                _EVENT_ORDER["knowledge.fact"],
+                0,
+                str(fact.id),
+                TimelineEventRead(
+                    id=fact.id,
+                    event_type="knowledge.fact",
+                    title=f"{fact.kind.value} · {fact.source.value}:{fact.source_ref}",
+                    detail=fact.fact,
+                    created_at=fact.observed_at,
+                ),
+            )
+        )
+
+    execution_rows = (
+        await session.execute(
+            select(ExecutionRecord, ActionProposal)
+            .join(ActionProposal, ActionProposal.id == ExecutionRecord.action_proposal_id)
+            .where(
+                ExecutionRecord.workspace_id == identity.workspace.id,
+                ExecutionRecord.mission_id == mission_id,
+            )
+        )
+    ).all()
+    for execution, action in execution_rows:
+        detail = f"{execution.status} (attempts: {execution.attempts})"
+        if execution.external_id:
+            detail = f"{detail} → {execution.external_id}"
+        if execution.last_error:
+            detail = f"{detail} — {execution.last_error[:200]}"
+        events.append(
+            (
+                execution.created_at,
+                _EVENT_ORDER["execution"],
+                0,
+                str(execution.id),
+                TimelineEventRead(
+                    id=execution.id,
+                    event_type="execution",
+                    title=f"{action.provider.value} {action.operation}",
+                    detail=detail,
+                    created_at=execution.created_at,
+                ),
+            )
+        )
+
+    verifications = list(
+        await session.scalars(
+            select(VerificationRecord).where(
+                VerificationRecord.workspace_id == identity.workspace.id,
+                VerificationRecord.mission_id == mission_id,
+            )
+        )
+    )
+    for verification in verifications:
+        events.append(
+            (
+                verification.checked_at,
+                _EVENT_ORDER["verification"],
+                0,
+                str(verification.id),
+                TimelineEventRead(
+                    id=verification.id,
+                    event_type="verification",
+                    title=f"Verification {verification.status}",
+                    detail=_compact_detail(verification.evidence),
+                    created_at=verification.checked_at,
+                ),
+            )
+        )
+
+    bundles = list(
+        await session.scalars(
+            select(ApprovalBundle).where(
+                ApprovalBundle.workspace_id == identity.workspace.id,
+                ApprovalBundle.mission_id == mission_id,
+            )
+        )
+    )
+    for bundle in bundles:
+        created_at = bundle.decided_at or bundle.created_at
+        events.append(
+            (
+                created_at,
+                _EVENT_ORDER["approval.bundle"],
+                0,
+                str(bundle.id),
+                TimelineEventRead(
+                    id=bundle.id,
+                    event_type="approval.bundle",
+                    title=f"Approval bundle {bundle.status}",
+                    detail=bundle.decision_note or f"Bundle v{bundle.version} is {bundle.status}",
+                    actor_user_id=bundle.decided_by_user_id,
+                    created_at=created_at,
+                ),
+            )
+        )
+
+    events.sort(key=lambda item: (item[0], item[1], item[2], item[3]))
+    return [event for _, _, _, _, event in events]
 
 
 @router.get(

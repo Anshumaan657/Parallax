@@ -15,10 +15,12 @@ from app.models import (
     ApprovalBundle,
     ExecutionRecord,
     IntegrationProvider,
+    KnowledgeFactKind,
     Mission,
     MissionStatus,
     VerificationRecord,
 )
+from app.services.knowledge import knowledge_source_for, record_fact
 from app.services.missions import record_mission_event, transition_mission
 
 
@@ -165,6 +167,27 @@ async def execute_mission(ctx: dict[str, Any], mission_id: str) -> str:
                                 checked_at=datetime.now(UTC),
                             )
                         )
+                        # K1.6: verified outcomes enter the knowledge base as
+                        # VERIFIED source facts (read-after-write confirmation).
+                        outcome_mission = await session.get(Mission, action.mission_id)
+                        assert outcome_mission is not None
+                        await record_fact(
+                            session,
+                            outcome_mission,
+                            kind=KnowledgeFactKind.SOURCE_FACT,
+                            source=knowledge_source_for(action.provider),
+                            source_ref=external.external_id,
+                            fact=(
+                                f"{action.provider.value} {action.operation} completed and "
+                                f"verified: {verification.get('title', external.external_id)}"
+                            ),
+                            data={
+                                "execution_id": str(execution.id),
+                                "action_id": str(action.id),
+                                "verification": verification,
+                            },
+                            verified=True,
+                        )
                         break
                     except (AdapterError, KeyError, ValueError) as exc:
                         last_error = str(exc)[:1000]
@@ -177,6 +200,22 @@ async def execute_mission(ctx: dict[str, Any], mission_id: str) -> str:
                     execution.last_error = last_error or "Execution failed"
                     execution.completed_at = datetime.now(UTC)
                     action.status = "failed"
+                    # K1.6: failures are observed knowledge too — recorded so the
+                    # agent sees them in the next context pack.
+                    outcome_mission = await session.get(Mission, action.mission_id)
+                    assert outcome_mission is not None
+                    await record_fact(
+                        session,
+                        outcome_mission,
+                        kind=KnowledgeFactKind.SOURCE_FACT,
+                        source=knowledge_source_for(action.provider),
+                        source_ref=f"action:{action.id}",
+                        fact=(
+                            f"{action.provider.value} {action.operation} execution failed: "
+                            f"{execution.last_error}"
+                        ),
+                        data={"execution_id": str(execution.id), "action_id": str(action.id)},
+                    )
                 await session.commit()
 
         async with factory() as session:
