@@ -75,7 +75,12 @@ curl -X POST http://localhost:8000/api/missions \
   -d '{"prompt":"Prepare a release-readiness plan","project":"General"}'
 ```
 
-The request returns `202`. Poll `GET /api/missions/{mission_id}` for timeline updates. In Phase 3 the worker intentionally stops at `planning`; no Agent or external integration is called yet.
+The request returns `202`. Poll `GET /api/missions/{mission_id}` for timeline updates. Phase 5 collects GitHub/Jira/Notion evidence, validates the Agent response or deterministic fallback, and stops at `context_collected` before policy or approval.
+
+Read the evidence and assessment through:
+
+- `GET /api/missions/{mission_id}/context-pack`
+- `GET /api/missions/{mission_id}/assessment`
 
 ## Integration modes
 

@@ -1016,6 +1016,200 @@
         }
       }
     },
+    "/api/missions/{mission_id}/context-pack": {
+      "get": {
+        "tags": [
+          "missions"
+        ],
+        "summary": "Get a mission Context Pack",
+        "operationId": "get_context_pack_api_missions__mission_id__context_pack_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "mission_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Mission Id"
+            }
+          },
+          {
+            "name": "X-Workspace-ID",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContextPackRead"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "description": "Request validation failed"
+          }
+        }
+      }
+    },
+    "/api/missions/{mission_id}/assessment": {
+      "get": {
+        "tags": [
+          "missions"
+        ],
+        "summary": "Get a validated Agent assessment",
+        "operationId": "get_assessment_api_missions__mission_id__assessment_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "mission_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Mission Id"
+            }
+          },
+          {
+            "name": "X-Workspace-ID",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentAssessmentRead"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "description": "Request validation failed"
+          }
+        }
+      }
+    },
     "/api/missions/{mission_id}/cancel": {
       "post": {
         "tags": [
@@ -1719,6 +1913,198 @@
         ],
         "title": "ActivityRead"
       },
+      "AgentAssessmentRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "mission_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Mission Id"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "service",
+              "fallback"
+            ],
+            "title": "Mode"
+          },
+          "context_summary": {
+            "type": "string",
+            "title": "Context Summary"
+          },
+          "risk_level": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high",
+              "critical"
+            ],
+            "title": "Risk Level"
+          },
+          "risk_factors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Risk Factors"
+          },
+          "review_effort_minutes": {
+            "type": "integer",
+            "title": "Review Effort Minutes"
+          },
+          "effort_rationale": {
+            "type": "string",
+            "title": "Effort Rationale"
+          },
+          "confidence": {
+            "type": "number",
+            "title": "Confidence"
+          },
+          "explanation": {
+            "type": "string",
+            "title": "Explanation"
+          },
+          "reviewer_candidates": {
+            "items": {
+              "$ref": "#/components/schemas/ReviewerCandidateRead"
+            },
+            "type": "array",
+            "title": "Reviewer Candidates"
+          },
+          "citations": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Citations"
+          },
+          "proposals": {
+            "items": {
+              "$ref": "#/components/schemas/AgentProposalRead"
+            },
+            "type": "array",
+            "title": "Proposals"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "mission_id",
+          "mode",
+          "context_summary",
+          "risk_level",
+          "risk_factors",
+          "review_effort_minutes",
+          "effort_rationale",
+          "confidence",
+          "explanation",
+          "reviewer_candidates",
+          "citations",
+          "proposals",
+          "created_at"
+        ],
+        "title": "AgentAssessmentRead"
+      },
+      "AgentProposalRead": {
+        "properties": {
+          "provider": {
+            "$ref": "#/components/schemas/IntegrationProvider"
+          },
+          "operation": {
+            "type": "string",
+            "title": "Operation"
+          },
+          "rationale": {
+            "type": "string",
+            "title": "Rationale"
+          },
+          "payload": {
+            "type": "object",
+            "title": "Payload"
+          },
+          "citations": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Citations"
+          }
+        },
+        "type": "object",
+        "required": [
+          "provider",
+          "operation",
+          "rationale",
+          "payload",
+          "citations"
+        ],
+        "title": "AgentProposalRead"
+      },
+      "ContextPackRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "mission_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Mission Id"
+          },
+          "version": {
+            "type": "integer",
+            "title": "Version"
+          },
+          "summary": {
+            "type": "string",
+            "title": "Summary"
+          },
+          "content": {
+            "type": "object",
+            "title": "Content"
+          },
+          "content_hash": {
+            "type": "string",
+            "title": "Content Hash"
+          },
+          "evidence": {
+            "items": {
+              "$ref": "#/components/schemas/EvidenceRead"
+            },
+            "type": "array",
+            "title": "Evidence"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "mission_id",
+          "version",
+          "summary",
+          "content",
+          "content_hash",
+          "evidence",
+          "created_at"
+        ],
+        "title": "ContextPackRead"
+      },
       "DashboardStatsRead": {
         "properties": {
           "active_tasks": {
@@ -1764,6 +2150,56 @@
           "detail"
         ],
         "title": "ErrorResponse"
+      },
+      "EvidenceRead": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "provider": {
+            "$ref": "#/components/schemas/IntegrationProvider"
+          },
+          "external_id": {
+            "type": "string",
+            "title": "External Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          },
+          "excerpt": {
+            "type": "string",
+            "title": "Excerpt"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "provider",
+          "external_id",
+          "title",
+          "url",
+          "excerpt",
+          "created_at"
+        ],
+        "title": "EvidenceRead"
       },
       "HTTPValidationError": {
         "properties": {
@@ -2305,6 +2741,37 @@
           "workspace_slug"
         ],
         "title": "RegisterRequest"
+      },
+      "ReviewerCandidateRead": {
+        "properties": {
+          "identity": {
+            "type": "string",
+            "title": "Identity"
+          },
+          "score": {
+            "type": "number",
+            "title": "Score"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          },
+          "citations": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Citations"
+          }
+        },
+        "type": "object",
+        "required": [
+          "identity",
+          "score",
+          "reason",
+          "citations"
+        ],
+        "title": "ReviewerCandidateRead"
       },
       "TokenResponse": {
         "properties": {

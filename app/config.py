@@ -38,7 +38,10 @@ class Settings(BaseSettings):
     notion_parent_page_id: str = ""
 
     agent_service_url: str = "http://localhost:8100"
-    agent_service_api_key: str = ""
+    agent_service_api_key: SecretStr = SecretStr("")
+    agent_mode: Literal["fallback", "service"] = "fallback"
+    agent_timeout_seconds: float = Field(default=30.0, ge=1, le=120)
+    agent_fallback_enabled: bool = True
 
     demo_owner_email: str = ""
     demo_owner_password: SecretStr = SecretStr("")

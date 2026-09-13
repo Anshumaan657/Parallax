@@ -5,7 +5,15 @@ from typing import Any
 from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 
-from app.models import AuditEvent, Mission, MissionStatus, MissionStep, OutboxJob
+from app.models import (
+    AgentAssessment,
+    AuditEvent,
+    ContextPack,
+    Mission,
+    MissionStatus,
+    MissionStep,
+    OutboxJob,
+)
 from app.worker import dispatch_outbox, prepare_mission
 
 OWNER = {
@@ -111,7 +119,7 @@ def test_mission_validation_and_workspace_isolation(client: TestClient) -> None:
     assert client.get("/api/missions", headers=other_headers).json() == []
 
 
-def test_outbox_dispatch_and_worker_planning_boundary(client: TestClient) -> None:
+def test_outbox_dispatch_and_worker_context_agent_pipeline(client: TestClient) -> None:
     token = str(register(client)["access_token"])
     mission_id = client.post(
         "/api/missions",
@@ -129,7 +137,7 @@ def test_outbox_dispatch_and_worker_planning_boundary(client: TestClient) -> Non
 
     fake_redis = FakeRedis()
 
-    async def run_worker() -> tuple[int, str, MissionStatus, int]:
+    async def run_worker() -> tuple[int, str, MissionStatus, int, int, int]:
         dispatched = await dispatch_outbox({"session_factory": factory, "redis": fake_redis})  # type: ignore[arg-type]
         result = await prepare_mission({"session_factory": factory}, mission_id)
         async with factory() as session:
@@ -144,11 +152,53 @@ def test_outbox_dispatch_and_worker_planning_boundary(client: TestClient) -> Non
                 )
                 or 0
             )
-            return dispatched, result, mission.status, step_count
+            context_count = int(
+                await session.scalar(
+                    select(func.count())
+                    .select_from(ContextPack)
+                    .where(ContextPack.mission_id == uuid.UUID(mission_id))
+                )
+                or 0
+            )
+            assessment_count = int(
+                await session.scalar(
+                    select(func.count())
+                    .select_from(AgentAssessment)
+                    .where(AgentAssessment.mission_id == uuid.UUID(mission_id))
+                )
+                or 0
+            )
+            return (
+                dispatched,
+                result,
+                mission.status,
+                step_count,
+                context_count,
+                assessment_count,
+            )
 
-    dispatched, result, status, step_count = asyncio.run(run_worker())
+    dispatched, result, status, step_count, context_count, assessment_count = asyncio.run(
+        run_worker()
+    )
     assert dispatched == 1
     assert fake_redis.calls[0][0:2] == ("prepare_mission", mission_id)
-    assert result == "planning"
-    assert status == MissionStatus.PLANNING
-    assert step_count == 1
+    assert result == "context_collected"
+    assert status == MissionStatus.CONTEXT_COLLECTED
+    assert step_count == 3
+    assert context_count == 1
+    assert assessment_count == 1
+
+    context_response = client.get(
+        f"/api/missions/{mission_id}/context-pack", headers=headers(token)
+    )
+    assert context_response.status_code == 200
+    assert len(context_response.json()["evidence"]) == 3
+    assessment_response = client.get(
+        f"/api/missions/{mission_id}/assessment", headers=headers(token)
+    )
+    assert assessment_response.status_code == 200
+    assessment = assessment_response.json()
+    assert assessment["mode"] == "fallback"
+    assert assessment["risk_level"] in {"low", "medium", "high", "critical"}
+    evidence_keys = {item["key"] for item in context_response.json()["evidence"]}
+    assert set(assessment["citations"]) <= evidence_keys

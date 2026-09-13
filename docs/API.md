@@ -152,6 +152,26 @@ In `mock` mode no third-party network request is made. In `real` mode missing cr
 
 Phase 4 does not publish integration data or mutation endpoints. GitHub/Jira/Notion reads are invoked internally by the Phase 5 context worker. Jira, Notion, and Slack write methods require a typed, previously validated approval context and will be wired to persisted approvals only in Phases 6–7.
 
+## Implemented in Phase 5
+
+### `GET /api/missions/{mission_id}/context-pack`
+
+Returns the latest workspace-scoped Context Pack, its SHA-256 content hash, source counts/errors, and ordered evidence. Evidence keys such as `github:pull_request:1` are stable citation identifiers. A missing or cross-workspace Context Pack returns `404`.
+
+### `GET /api/missions/{mission_id}/assessment`
+
+Returns the validated Agent result: context summary, risk and factors, review effort, ranked reviewer candidates, confidence, explanation, citations, typed proposals, and whether the result came from `service` or `fallback` mode. A missing or cross-workspace assessment returns `404`.
+
+Mission processing now follows:
+
+```text
+queued → planning → context_collected
+```
+
+At `context_collected`, three timeline steps are complete and the Context Pack plus assessment are available. The mission intentionally remains there until Phase 6 evaluates policy and creates an approval bundle.
+
+The Agent request is read-only and contains no integration credentials. The backend rejects unknown citations, malformed response fields, duplicate top-level citations, unsupported operations, and every GitHub write proposal. If configured, an invalid or unavailable Agent service produces a conservative deterministic fallback rather than fabricated completion.
+
 ## Implemented in Phase 2
 
 Protected routes use:

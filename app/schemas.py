@@ -1,10 +1,10 @@
 import uuid
 from datetime import datetime
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
-from app.models import MissionStatus, WorkspaceRole
+from app.models import IntegrationProvider, MissionStatus, WorkspaceRole
 
 
 class ErrorResponse(BaseModel):
@@ -127,6 +127,59 @@ class MissionRead(BaseModel):
     steps: list[MissionStepRead]
     created_at: datetime
     updated_at: datetime
+
+
+class EvidenceRead(BaseModel):
+    key: str
+    provider: IntegrationProvider
+    external_id: str
+    title: str
+    url: str | None
+    excerpt: str
+    created_at: datetime
+
+
+class ContextPackRead(BaseModel):
+    id: uuid.UUID
+    mission_id: uuid.UUID
+    version: int
+    summary: str
+    content: dict[str, Any]
+    content_hash: str
+    evidence: list[EvidenceRead]
+    created_at: datetime
+
+
+class ReviewerCandidateRead(BaseModel):
+    identity: str
+    score: float
+    reason: str
+    citations: list[str]
+
+
+class AgentProposalRead(BaseModel):
+    provider: IntegrationProvider
+    operation: str
+    rationale: str
+    payload: dict[str, Any]
+    citations: list[str]
+
+
+class AgentAssessmentRead(BaseModel):
+    id: uuid.UUID
+    mission_id: uuid.UUID
+    mode: Literal["service", "fallback"]
+    context_summary: str
+    risk_level: Literal["low", "medium", "high", "critical"]
+    risk_factors: list[str]
+    review_effort_minutes: int
+    effort_rationale: str
+    confidence: float
+    explanation: str
+    reviewer_candidates: list[ReviewerCandidateRead]
+    citations: list[str]
+    proposals: list[AgentProposalRead]
+    created_at: datetime
 
 
 class ActivityRead(BaseModel):

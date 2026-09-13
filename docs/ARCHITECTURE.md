@@ -81,3 +81,19 @@ The adapters currently provide:
 - Slack: channel history plus approval-gated post/update.
 
 The connection-check API is the only Phase 4 adapter mutation exposed publicly. Business writes remain internal and unreachable until a future execution service loads and validates a persisted approval. Vendor errors are converted to safe `AdapterError` values with retryability metadata; retries and read-after-write verification belong to Phase 7.
+
+## Context and Agent boundary
+
+The Phase 5 worker reads GitHub, Jira, and Notion through the adapter registry and converts every useful source into an evidence item with a stable citation key. PostgreSQL stores the versioned Context Pack, its SHA-256 content hash, source errors, and the exact typed Agent request/response.
+
+```text
+mission
+  → adapter reads
+  → Context Pack + evidence
+  → typed read-only Agent request
+  → schema, citation, and operation validation
+  → persisted assessment and typed proposals
+  → context_collected (Phase 5 boundary)
+```
+
+The Agent service receives no connector credentials and cannot call integration writes. Responses must cite known evidence keys. GitHub writes and unknown action types are rejected. With fallback enabled, invalid or unavailable Agent output is replaced by a conservative deterministic assessment. Proposals remain inert records until Phase 6 policy and approval.

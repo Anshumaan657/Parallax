@@ -39,6 +39,8 @@ Status: complete and verified; awaiting commit
 
 ## Phase 5 — Context and agent-team gateway
 
+Status: complete and verified; awaiting commit
+
 - Worker context collection and evidence storage
 - Typed read-only request to the Agent service
 - Validation of context packs, risk, effort, reviewers, confidence, citations, and proposals

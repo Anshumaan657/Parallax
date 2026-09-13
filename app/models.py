@@ -425,3 +425,106 @@ class OutboxJob(TimestampMixin, Base):
     attempts: Mapped[int] = mapped_column(default=0)
     dispatched_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_error: Mapped[str | None] = mapped_column(Text)
+
+
+class ContextPack(TimestampMixin, Base):
+    __tablename__ = "context_packs"
+    __table_args__ = (UniqueConstraint("mission_id", "version", name="uq_context_pack_version"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    workspace_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("workspaces.id", ondelete="CASCADE"), index=True
+    )
+    mission_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("missions.id", ondelete="CASCADE"), index=True
+    )
+    version: Mapped[int] = mapped_column(default=1)
+    summary: Mapped[str] = mapped_column(Text)
+    content: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    content_hash: Mapped[str] = mapped_column(String(64))
+
+    evidence: Mapped[list[EvidenceItem]] = relationship(
+        back_populates="context_pack", cascade="all, delete-orphan", order_by="EvidenceItem.key"
+    )
+
+
+class EvidenceItem(Base):
+    __tablename__ = "evidence_items"
+    __table_args__ = (UniqueConstraint("context_pack_id", "key", name="uq_evidence_context_key"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    workspace_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("workspaces.id", ondelete="CASCADE"), index=True
+    )
+    context_pack_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("context_packs.id", ondelete="CASCADE"), index=True
+    )
+    key: Mapped[str] = mapped_column(String(255))
+    provider: Mapped[IntegrationProvider] = mapped_column(
+        Enum(
+            IntegrationProvider,
+            name="integration_provider",
+            values_callable=lambda values: [value.value for value in values],
+        )
+    )
+    external_id: Mapped[str] = mapped_column(String(255))
+    title: Mapped[str] = mapped_column(String(500))
+    url: Mapped[str | None] = mapped_column(Text)
+    excerpt: Mapped[str] = mapped_column(Text)
+    data: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    context_pack: Mapped[ContextPack] = relationship(back_populates="evidence")
+
+
+class AgentRun(Base):
+    __tablename__ = "agent_runs"
+    __table_args__ = (Index("ix_agent_run_mission_created", "mission_id", "created_at"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    workspace_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("workspaces.id", ondelete="CASCADE"), index=True
+    )
+    mission_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("missions.id", ondelete="CASCADE"), index=True
+    )
+    context_pack_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("context_packs.id", ondelete="CASCADE"), index=True
+    )
+    mode: Mapped[str] = mapped_column(String(30))
+    status: Mapped[str] = mapped_column(String(30))
+    request_payload: Mapped[dict[str, Any]] = mapped_column(JSON)
+    response_payload: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    error: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class AgentAssessment(TimestampMixin, Base):
+    __tablename__ = "agent_assessments"
+    __table_args__ = (UniqueConstraint("mission_id", name="uq_agent_assessment_mission"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    workspace_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("workspaces.id", ondelete="CASCADE"), index=True
+    )
+    mission_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("missions.id", ondelete="CASCADE"), index=True
+    )
+    agent_run_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("agent_runs.id", ondelete="CASCADE"), unique=True, index=True
+    )
+    context_summary: Mapped[str] = mapped_column(Text)
+    risk_level: Mapped[str] = mapped_column(String(20))
+    risk_factors: Mapped[list[str]] = mapped_column(JSON, default=list)
+    review_effort_minutes: Mapped[int]
+    effort_rationale: Mapped[str] = mapped_column(Text)
+    confidence: Mapped[float]
+    explanation: Mapped[str] = mapped_column(Text)
+    reviewer_candidates: Mapped[list[dict[str, Any]]] = mapped_column(JSON, default=list)
+    citations: Mapped[list[str]] = mapped_column(JSON, default=list)
+    proposals: Mapped[list[dict[str, Any]]] = mapped_column(JSON, default=list)
