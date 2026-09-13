@@ -21,9 +21,15 @@ def deterministic_response(request: AgentContextRequest) -> AgentContextResponse
         proposals.append(
             AgentProposal(
                 provider=IntegrationProvider.JIRA,
-                operation="issue.update",
+                operation="issue.create",
                 rationale="Keep the linked delivery record synchronized after approval",
-                payload={"project": request.project, "summary": request.prompt[:160]},
+                payload={
+                    "fields": {
+                        "project": {"key": request.project.upper().replace(" ", "-")},
+                        "summary": request.prompt[:160],
+                        "issuetype": {"name": "Task"},
+                    }
+                },
                 citations=[citation],
             )
         )

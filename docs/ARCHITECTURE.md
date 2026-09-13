@@ -97,3 +97,18 @@ mission
 ```
 
 The Agent service receives no connector credentials and cannot call integration writes. Responses must cite known evidence keys. GitHub writes and unknown action types are rejected. With fallback enabled, invalid or unavailable Agent output is replaced by a conservative deterministic assessment. Proposals remain inert records until Phase 6 policy and approval.
+
+## Policy, approval, execution, and verification
+
+Phase 6 copies validated Agent proposals into versioned approval bundles. Deterministic policy evaluates operation allowlists, citations, confidence, and provider-specific payload requirements. Edits create a new bundle and rerun policy; approval, rejection, and cancellation are terminal decisions for that version.
+
+Phase 7 turns approval into a transactional outbox job. A Redis compare-and-delete lock prevents concurrent mission execution, while PostgreSQL unique action/idempotency constraints provide durable replay protection. Each action records attempts and a safe error. Successful vendor responses are read back through the adapter before a verification record is written.
+
+```text
+context_collected → waiting_for_approval
+  → rejected | cancelled
+  → running → completed | partially_complete | failed
+                  └── retry failed actions only ──┘
+```
+
+Verified actions are never repeated during recovery. Partial failure preserves successes and exposes action-level status to frontend and testing teams.

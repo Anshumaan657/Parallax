@@ -50,11 +50,11 @@ LEGAL_TRANSITIONS: dict[MissionStatus, frozenset[MissionStatus]] = {
         }
     ),
     MissionStatus.COMPLETED: frozenset(),
-    MissionStatus.BLOCKED: frozenset(),
+    MissionStatus.BLOCKED: frozenset({MissionStatus.RUNNING}),
     MissionStatus.REJECTED: frozenset(),
     MissionStatus.CANCELLED: frozenset(),
-    MissionStatus.PARTIALLY_COMPLETE: frozenset(),
-    MissionStatus.FAILED: frozenset(),
+    MissionStatus.PARTIALLY_COMPLETE: frozenset({MissionStatus.RUNNING}),
+    MissionStatus.FAILED: frozenset({MissionStatus.RUNNING}),
 }
 
 

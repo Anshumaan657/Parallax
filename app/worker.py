@@ -26,6 +26,7 @@ from app.models import (
     OutboxJob,
 )
 from app.services.context import collect_context
+from app.services.execution import execute_mission
 from app.services.missions import record_mission_event, transition_mission
 
 configure_logging()
@@ -315,7 +316,7 @@ async def prepare_mission(ctx: dict[str, Any], mission_id: str) -> str:
 
 
 class WorkerSettings:
-    functions = [phase_one_noop, prepare_mission]
+    functions = [phase_one_noop, prepare_mission, execute_mission]
     cron_jobs = [cron(dispatch_outbox, second=set(range(0, 60, 5)), run_at_startup=True)]
     on_startup = startup
     on_shutdown = shutdown

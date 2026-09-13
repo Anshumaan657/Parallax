@@ -82,6 +82,8 @@ Read the evidence and assessment through:
 - `GET /api/missions/{mission_id}/context-pack`
 - `GET /api/missions/{mission_id}/assessment`
 
+After context collection, create an approval bundle with `POST /api/missions/{mission_id}/approval`. A PM can approve, edit, reject, or cancel it through `/api/approvals/{approval_id}/...`. Approved actions execute asynchronously and can be inspected at `GET /api/missions/{mission_id}/executions`. Failed or partial missions can retry failed actions through `POST /api/missions/{mission_id}/retry`.
+
 ## Integration modes
 
 `INTEGRATION_MODE=mock` is the default and makes no third-party network requests. It supplies deterministic GitHub, Jira, Notion, and Slack behavior for local frontend, backend, and Agent-team development.

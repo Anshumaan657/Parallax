@@ -13,8 +13,10 @@ from app.config import settings
 from app.database import close_database
 from app.logging import configure_logging
 from app.metrics import HTTP_DURATION, HTTP_REQUESTS
+from app.routers.approvals import router as approvals_router
 from app.routers.auth import router as auth_router
 from app.routers.dashboard import router as dashboard_router
+from app.routers.executions import router as executions_router
 from app.routers.health import router as health_router
 from app.routers.integrations import router as integrations_router
 from app.routers.missions import router as missions_router
@@ -88,6 +90,8 @@ async def request_context(request: Request, call_next: RequestResponseEndpoint) 
 app.include_router(health_router)
 app.include_router(auth_router)
 app.include_router(workspaces_router)
+app.include_router(approvals_router)
+app.include_router(executions_router)
 app.include_router(missions_router)
 app.include_router(dashboard_router)
 app.include_router(integrations_router)

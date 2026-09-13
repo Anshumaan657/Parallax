@@ -43,6 +43,9 @@ class Settings(BaseSettings):
     agent_timeout_seconds: float = Field(default=30.0, ge=1, le=120)
     agent_fallback_enabled: bool = True
 
+    execution_max_attempts: int = Field(default=3, ge=1, le=10)
+    execution_lock_ttl_seconds: int = Field(default=300, ge=30, le=3600)
+
     demo_owner_email: str = ""
     demo_owner_password: SecretStr = SecretStr("")
     demo_owner_name: str = "Parallax Owner"

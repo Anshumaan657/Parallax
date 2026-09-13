@@ -172,6 +172,24 @@ At `context_collected`, three timeline steps are complete and the Context Pack p
 
 The Agent request is read-only and contains no integration credentials. The backend rejects unknown citations, malformed response fields, duplicate top-level citations, unsupported operations, and every GitHub write proposal. If configured, an invalid or unavailable Agent service produces a conservative deterministic fallback rather than fabricated completion.
 
+## Implemented in Phase 6
+
+- `POST /api/missions/{mission_id}/approval` creates or returns the latest policy-checked approval bundle.
+- `GET /api/approvals/{approval_id}` returns its version, policy result, typed actions, and decision.
+- `POST /api/approvals/{approval_id}/approve` approves the exact stored version and queues execution.
+- `POST /api/approvals/{approval_id}/edit` creates a new version and reruns all policy checks.
+- `POST /api/approvals/{approval_id}/reject` rejects all proposed actions.
+- `POST /api/approvals/{approval_id}/cancel` cancels the approval and mission.
+
+Approval mutations require `owner`, `admin`, or `manager`. Decisions are one-time: repeating or changing a terminal decision returns `409`. Edits never mutate the original bundle. Policy rejects unknown citations, unsupported operations, GitHub writes, low-confidence assessments, and provider payloads missing required fields. Every integration write requires explicit approval.
+
+## Implemented in Phase 7
+
+- `GET /api/missions/{mission_id}/executions` returns action attempts, safe errors, external IDs, results, and verification evidence.
+- `POST /api/missions/{mission_id}/retry` requeues only failed actions for a `failed`, `blocked`, or `partially_complete` mission.
+
+Approval and its execution outbox intent commit atomically. The worker uses a Redis ownership lock plus a unique action idempotency key, skips already verified actions, limits retries, and reads Jira, Notion, or Slack back before marking success. Outcomes are `completed`, `partially_complete`, or `failed`; an API success without read-after-write evidence is never treated as verified.
+
 ## Implemented in Phase 2
 
 Protected routes use:

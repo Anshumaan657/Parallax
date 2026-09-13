@@ -7,8 +7,10 @@
 - Phase 2: complete and committed as `16016b4`
 - Phase 3: complete and committed as `e3f8027`
 - Phase 4: complete and committed as `1809c98`
-- Phase 5: complete and verified in the working tree; not committed or pushed
-- Next phase: Phase 6 — policy and approval
+- Phase 5: complete and committed as `5030171`
+- Phase 6: complete and verified in the working tree
+- Phase 7: complete and verified in the working tree
+- Next phase: Phase 8 — analytics and demo reliability
 
 ## Phase 3 implementation
 
@@ -51,6 +53,23 @@ No public integration business-write endpoint exists yet. Phase 6 must persist a
 - Workspace-scoped Context Pack and assessment read APIs
 
 The Agent receives evidence but never connector credentials. Its proposals are stored as untrusted typed data; nothing is executed. The worker finishes at `context_collected`, leaving policy and approval to Phase 6.
+
+## Phase 6 implementation
+
+- Persisted typed action proposals and versioned approval bundles
+- Deterministic policy allowlists, evidence validation, confidence threshold, and payload rules
+- Approval preparation, read, approve, edit/revalidate, reject, and cancel APIs
+- Workspace/role isolation, one-time decisions, state transitions, and audit activity
+
+## Phase 7 implementation
+
+- Approval-to-execution transactional outbox handoff
+- ARQ execution worker with Redis ownership lock and PostgreSQL idempotency constraints
+- Bounded retry attempts and safe action-level errors
+- Jira, Notion, and Slack approved writes; GitHub remains read-only
+- Mandatory read-after-write verification records
+- Completed, partial, and failed outcomes plus failed-action recovery API
+- Replay skips verified actions and preserves prior verification
 
 ## Existing Phase 2 foundation
 
@@ -95,7 +114,7 @@ Workspace endpoints:
 
 ## Migration
 
-`20260913_0004_context_and_agent` follows the Phase-3 mission migration.
+`20260913_0005_policy_approvals` and `20260913_0006_execution_verification` follow the Phase-5 migration.
 
 ## Environment variables
 
@@ -107,6 +126,8 @@ Workspace endpoints:
 - `AGENT_SERVICE_API_KEY`
 - `AGENT_TIMEOUT_SECONDS`
 - `AGENT_FALLBACK_ENABLED`
+- `EXECUTION_MAX_ATTEMPTS`
+- `EXECUTION_LOCK_TTL_SECONDS`
 - optional `DEMO_OWNER_*` and `DEMO_WORKSPACE_*` variables for local seeding
 
 ## Commands
@@ -122,7 +143,7 @@ docker compose up --build -d
 
 ## Current boundary
 
-- The worker deliberately stops at `context_collected`; policy and approval are Phase 6.
+- Real vendor writes are not acceptance-tested without user-supplied credentials; deterministic mock execution is the local verification target.
 - Real adapters are implemented but live credentials were not supplied, so vendor acceptance tests are not claimed.
 - Mock writes are deterministic in memory; Phase 7 owns persisted execution records, idempotency, retries, and verification.
 - GitHub remains read-only for the current Phase 4 scope.
@@ -132,10 +153,9 @@ docker compose up --build -d
 
 - Ruff: passed
 - strict MyPy: passed for the app and seed command
-- Pytest: 23 passed, including Phase 5 service/fallback validation and the complete worker pipeline
+- Pytest: 26 passed, including approval decisions, policy rejection, idempotent execution, verification, partial failure, and recovery
 - Generated OpenAPI contract: refreshed
-- Existing PostgreSQL database: `20260913_0004 (head)`
-- Phase 5 migration reapplied successfully and Alembic schema drift check passed
+- Target PostgreSQL revision: `20260913_0006 (head)`
 - Alembic schema drift check: no new upgrade operations
 - Docker: API healthy; PostgreSQL and Redis healthy; worker running
 - Readiness: `ready`; Prometheus API target: `up`

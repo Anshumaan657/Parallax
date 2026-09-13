@@ -48,11 +48,15 @@ Status: complete and verified; awaiting commit
 
 ## Phase 6 — Policy and approval
 
+Status: complete and verified; awaiting commit
+
 - Typed action proposals and approval bundles
 - Approve, edit, reject, and cancel APIs
 - Deterministic policy rules and mandatory revalidation after edits
 
 ## Phase 7 — Execution, verification, and recovery
+
+Status: complete and verified; awaiting commit
 
 - Idempotent approved execution with Redis locks, retries, and rate limits
 - Read-after-write verification for every integration mutation

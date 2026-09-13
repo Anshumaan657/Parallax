@@ -182,6 +182,69 @@ class AgentAssessmentRead(BaseModel):
     created_at: datetime
 
 
+class ActionProposalInput(BaseModel):
+    provider: IntegrationProvider
+    operation: str = Field(min_length=3, max_length=120)
+    rationale: str = Field(min_length=3, max_length=2000)
+    payload: dict[str, Any] = Field(default_factory=dict)
+    citations: list[str] = Field(min_length=1)
+
+
+class ActionProposalRead(ActionProposalInput):
+    id: uuid.UUID
+    sequence: int
+    status: str
+
+
+class PolicyResultRead(BaseModel):
+    allowed: bool
+    approval_required: bool
+    reasons: list[str]
+
+
+class ApprovalBundleRead(BaseModel):
+    id: uuid.UUID
+    mission_id: uuid.UUID
+    version: int
+    status: str
+    policy: PolicyResultRead
+    actions: list[ActionProposalRead]
+    decided_by_user_id: uuid.UUID | None
+    decided_at: datetime | None
+    decision_note: str | None
+    created_at: datetime
+
+
+class ApprovalDecisionRequest(BaseModel):
+    note: str | None = Field(default=None, max_length=2000)
+
+
+class ApprovalEditRequest(BaseModel):
+    actions: list[ActionProposalInput] = Field(min_length=1, max_length=50)
+    note: str | None = Field(default=None, max_length=2000)
+
+
+class VerificationRead(BaseModel):
+    status: str
+    evidence: dict[str, Any]
+    checked_at: datetime
+
+
+class ExecutionRead(BaseModel):
+    id: uuid.UUID
+    action_proposal_id: uuid.UUID
+    provider: IntegrationProvider
+    operation: str
+    status: str
+    attempts: int
+    external_id: str | None
+    result: dict[str, Any] | None
+    last_error: str | None
+    verification: VerificationRead | None
+    created_at: datetime
+    completed_at: datetime | None
+
+
 class ActivityRead(BaseModel):
     id: uuid.UUID
     mission_id: uuid.UUID | None
