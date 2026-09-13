@@ -1,0 +1,167 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Parallax API",
+    "description": "Backend API for manually submitted Parallax missions. External writes are proposed, approved, executed, verified, and audited by deterministic backend services.",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": [
+          "system"
+        ],
+        "summary": "API liveness",
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/health": {
+      "get": {
+        "tags": [
+          "system"
+        ],
+        "summary": "API liveness (MVP compatibility path)",
+        "operationId": "api_health_api_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ready": {
+      "get": {
+        "tags": [
+          "system"
+        ],
+        "summary": "PostgreSQL, Redis, and worker readiness",
+        "operationId": "ready_ready_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadyResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadyResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "HealthResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "ok",
+            "title": "Status"
+          },
+          "service": {
+            "type": "string",
+            "title": "Service"
+          },
+          "uptime_seconds": {
+            "type": "number",
+            "title": "Uptime Seconds"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "service",
+          "uptime_seconds"
+        ],
+        "title": "HealthResponse"
+      },
+      "ReadyDependencies": {
+        "properties": {
+          "postgres": {
+            "type": "string",
+            "enum": [
+              "up",
+              "down"
+            ],
+            "title": "Postgres"
+          },
+          "redis": {
+            "type": "string",
+            "enum": [
+              "up",
+              "down"
+            ],
+            "title": "Redis"
+          },
+          "worker": {
+            "type": "string",
+            "enum": [
+              "up",
+              "down"
+            ],
+            "title": "Worker"
+          }
+        },
+        "type": "object",
+        "required": [
+          "postgres",
+          "redis",
+          "worker"
+        ],
+        "title": "ReadyDependencies"
+      },
+      "ReadyResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ready",
+              "not_ready"
+            ],
+            "title": "Status"
+          },
+          "dependencies": {
+            "$ref": "#/components/schemas/ReadyDependencies"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "dependencies"
+        ],
+        "title": "ReadyResponse"
+      }
+    }
+  }
+}
