@@ -20,6 +20,8 @@ from app.models import (
     AgentRun,
     ContextPack,
     EvidenceItem,
+    KnowledgeFactKind,
+    KnowledgeSource,
     Mission,
     MissionStatus,
     MissionStep,
@@ -27,6 +29,7 @@ from app.models import (
 )
 from app.services.context import collect_context
 from app.services.execution import execute_mission
+from app.services.knowledge import build_mission_context, knowledge_source_for, record_fact
 from app.services.missions import record_mission_event, transition_mission
 
 configure_logging()
@@ -173,6 +176,19 @@ async def prepare_mission(ctx: dict[str, Any], mission_id: str) -> str:
                 for item in collected.evidence
             ]
         )
+        # K1.5: mirror collected evidence into the append-only knowledge base
+        # and assemble the bounded context pack for the next agent call.
+        for item in collected.evidence:
+            await record_fact(
+                session,
+                current,
+                kind=KnowledgeFactKind.SOURCE_FACT,
+                source=knowledge_source_for(item.provider),
+                source_ref=item.external_id,
+                fact=f"{item.title}: {item.excerpt}",
+                data={"key": item.key, "url": item.url},
+            )
+        knowledge_pack = await build_mission_context(session, current)
         transition_mission(
             session,
             current,
@@ -207,6 +223,7 @@ async def prepare_mission(ctx: dict[str, Any], mission_id: str) -> str:
         prompt=mission.prompt,
         project=mission.project_name,
         context_summary=collected.summary,
+        knowledge_base=knowledge_pack,
         evidence=[
             AgentEvidence(
                 key=item.key,
@@ -310,6 +327,25 @@ async def prepare_mission(ctx: dict[str, Any], mission_id: str) -> str:
             "Agent assessment ready",
             "Validated evidence, risk, effort, reviewers, confidence, and proposals",
             None,
+        )
+        # K1.6: the agent's validated assessment is derived knowledge —
+        # recorded as a DECISION fact, never as source truth.
+        await record_fact(
+            session,
+            completed_mission,
+            kind=KnowledgeFactKind.DECISION,
+            source=KnowledgeSource.AGENT,
+            source_ref=f"agent-run:{completed_run.id}",
+            fact=response.explanation,
+            data={
+                "context_summary": response.context_summary,
+                "risk_level": response.risk.level,
+                "proposals": [
+                    f"{item.provider.value}:{item.operation}" for item in response.proposals
+                ],
+            },
+            agent_run_id=completed_run.id,
+            confidence=response.confidence,
         )
         await session.commit()
     return "context_collected"

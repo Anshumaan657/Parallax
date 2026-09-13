@@ -22,6 +22,11 @@ class AgentContextRequest(BaseModel):
     project: str
     context_summary: str
     evidence: list[AgentEvidence]
+    # Additive, v1.0-compatible: mission knowledge base excerpt assembled by
+    # the backend (latest verified facts, decisions, action outcomes, conflicts).
+    # The agent must ground its output in evidence citations; knowledge_base
+    # entries are operational context, not a replacement for fresh verification.
+    knowledge_base: dict[str, Any] | None = None
 
 
 class RiskAssessment(BaseModel):
