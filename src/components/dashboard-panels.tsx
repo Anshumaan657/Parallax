@@ -7,7 +7,7 @@ import { formatRelativeTime } from "@/components/mission-status";
 
 function Panel({ title, href, children }: { title: string; href?: string; children: React.ReactNode }) {
   return (
-    <section className="border bg-card" aria-labelledby={`panel-${title.toLowerCase().replaceAll(" ", "-")}`}>
+    <section className="overflow-hidden rounded-xl border bg-card shadow-xs" aria-labelledby={`panel-${title.toLowerCase().replaceAll(" ", "-")}`}>
       <div className="flex min-h-12 items-center justify-between border-b px-4">
         <h2 id={`panel-${title.toLowerCase().replaceAll(" ", "-")}`} className="text-sm font-semibold">{title}</h2>
         {href && <Button nativeButton={false} variant="ghost" size="sm" render={<Link href={href} />}>View all<ChevronRight className="size-3.5" /></Button>}

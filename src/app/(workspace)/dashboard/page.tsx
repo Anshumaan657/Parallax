@@ -7,7 +7,7 @@ import { ActivityPanel, AgentInsightsPanel, ConnectedAppsPanel, ProjectsPanel, Q
 import { MissionComposer } from "@/components/mission-composer";
 import { MissionList, MissionListSkeleton } from "@/components/mission-list";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
+import { PanelSkeleton, KpiSkeleton, ComposerSkeleton } from "@/components/page-skeleton";
 import { ApiError } from "@/lib/api/errors";
 import { getActivity, getIntegrations, getMissions, getProjects, getStats, requireSession } from "@/lib/api/server";
 import { canManage } from "@/lib/api/types";
@@ -17,8 +17,7 @@ async function load<T>(promise: Promise<T>): Promise<{ data: T; error?: never } 
 }
 
 function PanelFailure({ label, error }: { label: string; error: unknown }) { return <section className="rounded-xl border border-dashed bg-card p-5 text-sm text-muted-foreground"><span className="font-medium text-foreground">{label}</span> could not be loaded.{error instanceof ApiError && error.correlationId && <span className="mt-1 block font-mono text-xs">Reference {error.correlationId}</span>}</section>; }
-function PanelSkeleton({ height = "h-48" }: { height?: string }) { return <Skeleton className={`${height} w-full rounded-xl`} />; }
-function StatsSkeleton() { return <Skeleton className="mb-5 h-48 w-full rounded-xl xl:h-24" />; }
+function StatsSkeleton() { return <div className="mb-5"><KpiSkeleton count={5} /></div>; }
 
 async function StatsStrip() {
   const result = await load(getStats());
@@ -51,5 +50,5 @@ async function Insights() { const result = await load(getMissions(20, 0)); retur
 
 export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ prompt?: string; compose?: string }> }) {
   const [{ prompt, compose }, session] = await Promise.all([searchParams, requireSession()]);
-  return <div className="mx-auto w-full max-w-[1600px] px-4 py-6 sm:px-6 lg:px-8 lg:py-8"><header className="mb-6"><p className="mb-1 font-mono text-xs font-medium uppercase tracking-[0.16em] text-primary">{session.current_workspace.name}</p><h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Good to see you, {session.user.display_name.split(" ")[0]}</h1><p className="mt-1 text-sm text-muted-foreground">Track agent work across connected systems.</p></header><Suspense fallback={<StatsSkeleton />}><StatsStrip /></Suspense><div className="mb-5"><Suspense fallback={<PanelSkeleton height="h-44" />}><Composer prompt={prompt} autoFocus={compose === "1"} /></Suspense></div><div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,2fr)_minmax(290px,0.82fr)]"><Suspense fallback={<div className="rounded-xl border bg-card p-4"><MissionListSkeleton rows={6} /></div>}><RecentMissions /></Suspense><div className="min-w-0 space-y-5"><Suspense fallback={<PanelSkeleton />}><ConnectedApps /></Suspense><Suspense fallback={<PanelSkeleton height="h-72" />}><RecentActivity /></Suspense></div></div><div className="mt-5 grid gap-5 lg:grid-cols-3"><Suspense fallback={<PanelSkeleton />}><Projects /></Suspense><Suspense fallback={<PanelSkeleton />}><Insights /></Suspense><QuickActionsPanel /></div></div>;
+  return <div className="mx-auto w-full max-w-[1440px] px-4 py-6 sm:px-6 lg:px-8 lg:py-8"><header className="mb-6"><p className="mb-1 text-xs font-medium text-muted-foreground">{session.current_workspace.name}</p><h1 className="text-[22px] font-semibold tracking-tight">Good to see you, {session.user.display_name.split(" ")[0]}</h1><p className="mt-1 text-sm text-muted-foreground">Track agent work across connected systems.</p></header><Suspense fallback={<StatsSkeleton />}><StatsStrip /></Suspense><div className="mb-5"><Suspense fallback={<ComposerSkeleton />}><Composer prompt={prompt} autoFocus={compose === "1"} /></Suspense></div><div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,2fr)_minmax(290px,0.82fr)]"><Suspense fallback={<div className="rounded-xl border bg-card p-4"><MissionListSkeleton rows={6} /></div>}><RecentMissions /></Suspense><div className="min-w-0 space-y-5"><Suspense fallback={<PanelSkeleton />}><ConnectedApps /></Suspense><Suspense fallback={<PanelSkeleton rows={5} />}><RecentActivity /></Suspense></div></div><div className="mt-5 grid gap-5 lg:grid-cols-3"><Suspense fallback={<PanelSkeleton />}><Projects /></Suspense><Suspense fallback={<PanelSkeleton />}><Insights /></Suspense><QuickActionsPanel /></div></div>;
 }

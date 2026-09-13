@@ -6,17 +6,22 @@ import { createBackendClient, unwrap } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/errors";
 import type { ApprovalDecision, ApprovalEdit, IntegrationProvider, MissionCreate, WorkspaceRole } from "@/lib/api/types";
 import { clearTokenCookies, readTokenCookies, setTokenCookies } from "@/lib/auth/cookies";
+import { authDisabled, previewSession } from "@/lib/auth/preview";
 
 async function authenticatedClient() {
   const tokens = await readTokenCookies();
-  if (!tokens.accessToken) throw new ApiError("Authentication required.", 401);
-  return createBackendClient(tokens.accessToken, tokens.workspaceId);
+  const accessToken = tokens.accessToken || (authDisabled ? process.env.PARALLAX_DEV_ACCESS_TOKEN : undefined);
+  const workspaceId = tokens.workspaceId || (authDisabled ? process.env.PARALLAX_DEV_WORKSPACE_ID : undefined);
+  if (!accessToken && !authDisabled) throw new ApiError("Authentication required.", 401);
+  return createBackendClient(accessToken, workspaceId);
 }
 
 async function actionCall<T>(operation: (client: ReturnType<typeof createBackendClient>) => Promise<{ data?: T; error?: unknown; response: Response }>) {
   let tokens = await readTokenCookies();
-  if (!tokens.accessToken) throw new ApiError("Authentication required.", 401);
-  let result = await operation(createBackendClient(tokens.accessToken, tokens.workspaceId));
+  const accessToken = tokens.accessToken || (authDisabled ? process.env.PARALLAX_DEV_ACCESS_TOKEN : undefined);
+  const workspaceId = tokens.workspaceId || (authDisabled ? process.env.PARALLAX_DEV_WORKSPACE_ID : undefined);
+  if (!accessToken && !authDisabled) throw new ApiError("Authentication required.", 401);
+  let result = await operation(createBackendClient(accessToken, workspaceId));
   if (result.response.status === 401 && tokens.refreshToken) {
     try {
       const refreshClient = createBackendClient();
@@ -33,6 +38,15 @@ async function actionCall<T>(operation: (client: ReturnType<typeof createBackend
 }
 
 export async function requireSession() {
+  if (authDisabled) {
+    try {
+      const client = await authenticatedClient();
+      const me = unwrap(await client.GET("/api/auth/me"));
+      return { ...me, expiresAt: (await readTokenCookies()).expiresAt };
+    } catch {
+      return previewSession;
+    }
+  }
   try {
     const client = await authenticatedClient();
     const me = unwrap(await client.GET("/api/auth/me"));

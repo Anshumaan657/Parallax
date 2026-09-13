@@ -40,7 +40,7 @@ export const terminalMissionStatuses = new Set<MissionStatus>([
   "failed",
 ]);
 
-export const canManage = (role: WorkspaceRole) => role === "owner" || role === "admin" || role === "manager";
+export const canManage = (role: WorkspaceRole) => process.env.PARALLAX_DISABLE_RBAC === "true" || role === "owner" || role === "admin" || role === "manager";
 
 export function normalizeDate(value: string) {
   return /(?:Z|[+-]\d{2}:?\d{2})$/.test(value) ? value : `${value}Z`;

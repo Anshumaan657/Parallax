@@ -21,6 +21,7 @@ export function createBackendClient(accessToken?: string, workspaceId?: string) 
       try { return await fetch(request, { cache: "no-store", signal: AbortSignal.any([request.signal, AbortSignal.timeout(API_TIMEOUT_MS)]) }); }
       catch (error) {
         if (error instanceof DOMException && error.name === "TimeoutError") throw new ApiError("The Parallax API timed out.", 502, headers["X-Correlation-ID"]);
+        if (error instanceof TypeError && error.message === "fetch failed") throw new ApiError("Cannot reach Parallax. Check that the local backend is running and try again.", 502, headers["X-Correlation-ID"]);
         throw error;
       }
     },
