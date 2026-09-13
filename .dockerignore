@@ -32,3 +32,15 @@
 **/dist
 LICENSE
 README.md
+
+# Python
+.git
+.env
+.venv
+__pycache__
+.pytest_cache
+.mypy_cache
+.ruff_cache
+htmlcov
+node_modules
+dist
