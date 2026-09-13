@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { Activity, Bell, Boxes, BriefcaseBusiness, Cable, ChartNoAxesCombined, Command as CommandIcon, LayoutDashboard, LogOut, Menu, Plus, Search, ScrollText, Settings, Users } from "lucide-react";
+import { LayoutGroup, motion, useReducedMotion } from "framer-motion";
 
 import { logoutAction } from "@/app/actions/auth";
 import { Button } from "@/components/ui/button";
@@ -29,7 +30,20 @@ function Brand() {
 
 function Navigation({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
-  return <nav aria-label="Primary navigation" className="mt-8 space-y-1">{navigation.map(({ label, href, icon: Icon }) => { const active = pathname === href || (href !== "/dashboard" && pathname.startsWith(`${href}/`)); return <Link key={href} href={href} onClick={onNavigate} aria-current={active ? "page" : undefined} className={cn("flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-medium text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-foreground", active && "bg-sidebar-accent text-primary")}><Icon className="size-[18px]" aria-hidden="true" /><span className="whitespace-nowrap">{label}</span></Link>; })}</nav>;
+  const groupId = useId();
+  const reduceMotion = useReducedMotion();
+  const [hoveredHref, setHoveredHref] = useState<string | null>(null);
+  const activeHref = navigation.find(({ href }) => pathname === href || (href !== "/dashboard" && pathname.startsWith(`${href}/`)))?.href;
+  const highlightedHref = hoveredHref ?? activeHref;
+
+  return <LayoutGroup id={groupId}><nav aria-label="Primary navigation" className="mt-8 space-y-1" onMouseLeave={() => setHoveredHref(null)}>{navigation.map(({ label, href, icon: Icon }) => {
+    const active = activeHref === href;
+    const highlighted = highlightedHref === href;
+    return <Link key={href} href={href} onClick={onNavigate} onMouseEnter={() => setHoveredHref(href)} onFocus={() => setHoveredHref(href)} onBlur={() => setHoveredHref(null)} aria-current={active ? "page" : undefined} className={cn("relative isolate flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-medium text-sidebar-muted outline-none transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-primary/35", highlighted && "text-primary")}>
+      {highlighted && <motion.span layoutId="sidebar-highlight" className="absolute inset-0 -z-10 rounded-lg bg-sidebar-accent" initial={false} transition={reduceMotion ? { duration: 0 } : { type: "spring", stiffness: 480, damping: 38, mass: 0.65 }} />}
+      <Icon className="size-[18px]" aria-hidden="true" /><span className="whitespace-nowrap">{label}</span>
+    </Link>;
+  })}</nav></LayoutGroup>;
 }
 
 function SidebarContent({ session, readiness, authDisabled, onNavigate }: { session: MeResponse; readiness: ReadyResponse | null; authDisabled: boolean; onNavigate?: () => void }) {
