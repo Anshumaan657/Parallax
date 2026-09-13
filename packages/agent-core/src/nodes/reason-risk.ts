@@ -4,9 +4,7 @@ import {
 } from "@langchain/core/messages";
 
 import type { AgentStateType } from "../graph/state.js";
-import { GeminiGateway } from "../reasoning/gemini-gateway.js";
-
-const model = new GeminiGateway();
+import { getModelGateway } from "../reasoning/reason.js";
 
 export async function reasonAboutRisk(
   state: AgentStateType,
@@ -51,7 +49,7 @@ Provide a concise engineering assessment covering:
 Do not invent repository history, incidents, ownership, metrics, or behavior that is not present in the supplied information.
 `;
 
-  const response = await model.invoke([
+  const response = await getModelGateway().invoke([
     new SystemMessage(
       "You are a careful senior software engineer. Base conclusions only on supplied evidence.",
     ),

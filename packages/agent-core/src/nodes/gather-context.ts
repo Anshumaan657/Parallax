@@ -4,9 +4,31 @@ import { MCPGitHubTool } from "../tools/mcp/github-tool.js";
 import { JiraRestTool } from "../tools/jira.js";
 import { MockNotionTool } from "../tools/mock-notion.js";
 
-const github = new MCPGitHubTool();
-const jira = new JiraRestTool();
-const notion = new MockNotionTool();
+/*
+ * Tools are instantiated lazily so importing this module (e.g. when the
+ * HTTP server boots) does not require integration credentials.
+ */
+let github: MCPGitHubTool | null = null;
+let jira: JiraRestTool | null = null;
+let notion: MockNotionTool | null = null;
+
+function getGithubTool(): MCPGitHubTool {
+  github ??= new MCPGitHubTool();
+
+  return github;
+}
+
+function getJiraTool(): JiraRestTool {
+  jira ??= new JiraRestTool();
+
+  return jira;
+}
+
+function getNotionTool(): MockNotionTool {
+  notion ??= new MockNotionTool();
+
+  return notion;
+}
 
 export async function gatherContext(
   state: AgentStateType,
@@ -19,12 +41,12 @@ export async function gatherContext(
   }
 
   try {
-    const files = await github.getPullRequestFiles(
+    const files = await getGithubTool().getPullRequestFiles(
       state.pr.repository,
       state.pr.id,
     );
 
-    const commits = await github.getPullRequestCommits(
+    const commits = await getGithubTool().getPullRequestCommits(
       state.pr.repository,
       state.pr.id,
     );
@@ -35,7 +57,7 @@ export async function gatherContext(
       state.pr.branch,
     ].join("\n");
 
-    const jiraIssueKey = jira.extractIssueKey(jiraText);
+    const jiraIssueKey = getJiraTool().extractIssueKey(jiraText);
 
     const evidence: Evidence[] = [
       {
@@ -55,11 +77,11 @@ export async function gatherContext(
     ];
 
     if (jiraIssueKey) {
-      const jiraIssue = await jira.getIssue(jiraIssueKey);
+      const jiraIssue = await getJiraTool().getIssue(jiraIssueKey);
       evidence.push(jiraIssue);
     }
 
-    const notionContext = await notion.getProjectContext(
+    const notionContext = await getNotionTool().getProjectContext(
       "payments-reliability",
     );
 

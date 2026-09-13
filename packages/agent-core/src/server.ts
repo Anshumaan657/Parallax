@@ -2,6 +2,11 @@ import http from "node:http";
 import { Command } from "@langchain/langgraph";
 import { agentGraph } from "./graph/graph.js";
 import {
+  analyzeMission,
+  type AgentContextRequestBody,
+} from "./reasoning/analyze.js";
+import type { MissionContext } from "./types/mission-context.js";
+import {
   getProgress,
   type MissionResponse,
   type MissionStatus,
@@ -9,9 +14,24 @@ import {
 
 const PORT = Number(process.env.AGENT_PORT ?? "4010");
 
+/**
+ * Bearer check for the backend contract. Open when no key is configured
+ * (local/dev); enforced when AGENT_SERVICE_API_KEY is set.
+ */
+function isAuthorized(request: http.IncomingMessage): boolean {
+  const expected = process.env.AGENT_SERVICE_API_KEY;
+
+  if (!expected) {
+    return true;
+  }
+
+  return request.headers.authorization === `Bearer ${expected}`;
+}
+
 type MissionRequest = {
   mission: string;
   missionId?: string;
+  context?: MissionContext | null;
 };
 
 const missions = new Map<
@@ -55,9 +75,11 @@ async function readBody(
 
 function buildMissionInput(
   mission: string,
+  context: MissionContext | null,
 ) {
   return {
     mission,
+    context,
     pr: null,
     evidence: [],
     gaps: [],
@@ -156,6 +178,61 @@ const server = http.createServer(
 
       if (
         request.method === "POST" &&
+        url.pathname === "/v1/analyze"
+      ) {
+        if (!isAuthorized(request)) {
+          json(response, 401, {
+            error: "Unauthorized",
+          });
+
+          return;
+        }
+
+        const rawBody = await readBody(request);
+
+        let body: AgentContextRequestBody;
+        try {
+          body = JSON.parse(rawBody) as AgentContextRequestBody;
+        } catch {
+          json(response, 400, {
+            error: "Invalid JSON body",
+          });
+
+          return;
+        }
+
+        if (
+          typeof body.prompt !== "string" ||
+          body.prompt.length === 0 ||
+          !Array.isArray(body.evidence)
+        ) {
+          json(response, 400, {
+            error: "prompt and evidence are required",
+          });
+
+          return;
+        }
+
+        try {
+          const result = await analyzeMission(body);
+
+          json(response, 200, result);
+        } catch (error) {
+          console.error(error);
+
+          json(response, 422, {
+            error:
+              error instanceof Error
+                ? error.message
+                : String(error),
+          });
+        }
+
+        return;
+      }
+
+      if (
+        request.method === "POST" &&
         url.pathname === "/missions"
       ) {
         const rawBody = await readBody(request);
@@ -177,7 +254,7 @@ const server = http.createServer(
           `mission-${Date.now()}`;
 
         const state = await agentGraph.invoke(
-          buildMissionInput(body.mission),
+          buildMissionInput(body.mission, body.context ?? null),
           {
             configurable: {
               thread_id: missionId,

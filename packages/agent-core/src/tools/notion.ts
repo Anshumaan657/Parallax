@@ -14,6 +14,24 @@ type NotionBlock = {
   [key: string]: unknown;
 };
 
+export function extractNotionPageId(
+  text: string,
+): string | null {
+  const urlMatch = text.match(
+    /notion\.com\/(?:p\/)?[^ \t\r\n]*?([a-f0-9]{32})/i,
+  );
+
+  if (urlMatch?.[1]) {
+    return urlMatch[1];
+  }
+
+  const idMatch = text.match(
+    /(?:^|[^a-f0-9])([a-f0-9]{32})(?:[^a-f0-9]|$)/i,
+  );
+
+  return idMatch?.[1] ?? null;
+}
+
 export class NotionRestTool implements NotionTool {
   private readonly token: string;
 
@@ -50,19 +68,7 @@ export class NotionRestTool implements NotionTool {
   }
 
   extractPageId(text: string): string | null {
-    const urlMatch = text.match(
-      /notion\.com\/(?:p\/)?[^ \t\r\n]*?([a-f0-9]{32})/i,
-    );
-
-    if (urlMatch?.[1]) {
-      return urlMatch[1];
-    }
-
-    const idMatch = text.match(
-      /(?:^|[^a-f0-9])([a-f0-9]{32})(?:[^a-f0-9]|$)/i,
-    );
-
-    return idMatch?.[1] ?? null;
+    return extractNotionPageId(text);
   }
 
   private extractRichText(

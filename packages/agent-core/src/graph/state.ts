@@ -19,6 +19,8 @@ import type {
 
 import type { PolicyRecommendation } from "../schemas/policy-recommendation.js";
 
+import type { MissionContext } from "../types/mission-context.js";
+
 /**
  * Shared state that flows through the Parallax agent graph.
  *
@@ -153,6 +155,16 @@ export const AgentState = Annotation.Root({
   /* ------------------------------------------------------------------------ */
   /* Control                                                                   */
   /* ------------------------------------------------------------------------ */
+
+  /**
+   * Mission knowledge base excerpt supplied by the backend on each run.
+   * Runtime passthrough only — the KB itself lives in the backend;
+   * AgentState must not accumulate long-term knowledge.
+   */
+  context: Annotation<MissionContext | null>({
+    value: (_, update) => update,
+    default: () => null,
+  }),
 
   approvalStatus: Annotation<
     "not_required" | "pending" | "approved" | "rejected"
