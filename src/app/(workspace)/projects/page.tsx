@@ -1,4 +1,3 @@
-import { ProjectsPageClient } from "@/components/projects-page-client";
-
-export default function ProjectsPage() { return <ProjectsPageClient />; }
-
+import { PageHeader } from "@/components/page-header";
+import { getProjects } from "@/lib/api/server";
+export default async function ProjectsPage() { const projects = await getProjects(); return <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8"><PageHeader eyebrow="Portfolio" title="Projects" description="Health snapshots calculated by the Parallax backend." /><div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{projects.map((project) => <article key={project.id} className="rounded-xl border bg-card p-5"><div className="flex items-center justify-between gap-3"><h2 className="font-semibold">{project.name}</h2><span className="font-mono text-sm">{project.health_pct}%</span></div><div className="mt-4 h-2 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-primary" style={{ width: `${Math.max(0, Math.min(100, project.health_pct))}%` }} /></div><code className="mt-4 block truncate text-xs text-muted-foreground">{project.id}</code></article>)}{!projects.length && <p className="text-sm text-muted-foreground">No projects are available.</p>}</div></main>; }

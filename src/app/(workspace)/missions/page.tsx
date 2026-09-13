@@ -1,6 +1,10 @@
-import { MissionsPageClient } from "@/components/missions-page-client";
+import Link from "next/link";
+import { MissionList } from "@/components/mission-list";
+import { PageHeader } from "@/components/page-header";
+import { Button } from "@/components/ui/button";
+import { getMissions } from "@/lib/api/server";
+import type { MissionStatus } from "@/lib/api/types";
 
-export default function MissionsPage() {
-  return <MissionsPageClient />;
-}
-
+const statuses: Array<MissionStatus | "all"> = ["all", "queued", "planning", "context_collected", "waiting_for_approval", "running", "completed", "blocked", "rejected", "cancelled", "partially_complete", "failed"];
+const pageSize = 20;
+export default async function MissionsPage({ searchParams }: { searchParams: Promise<{ page?: string; status?: string }> }) { const query = await searchParams; const page = Math.max(1, Number.parseInt(query.page ?? "1", 10) || 1); const status = statuses.includes(query.status as MissionStatus) ? query.status as MissionStatus : "all"; const missions = await getMissions(pageSize, (page - 1) * pageSize); const href = (nextPage: number) => `/missions?page=${nextPage}${status === "all" ? "" : `&status=${status}`}`; return <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8"><PageHeader eyebrow="Mission archive" title="Missions" description="Live and completed agent work from the backend contract." /><nav className="mb-5 flex gap-2 overflow-x-auto pb-2" aria-label="Mission status filters">{statuses.map((item) => <Button key={item} nativeButton={false} size="sm" variant={item === status ? "default" : "outline"} render={<Link href={`/missions${item === "all" ? "" : `?status=${item}`}`} />}>{item.replaceAll("_", " ")}</Button>)}</nav><section className="rounded-xl border bg-card px-4"><MissionList missions={missions} filter={status} /></section><div className="mt-5 flex justify-between"><Button nativeButton={false} variant="outline" disabled={page === 1} render={page > 1 ? <Link href={href(page - 1)} /> : undefined}>Previous</Button><span className="self-center font-mono text-xs text-muted-foreground">Page {page}</span><Button nativeButton={false} variant="outline" disabled={missions.length < pageSize} render={missions.length === pageSize ? <Link href={href(page + 1)} /> : undefined}>Next</Button></div></main>; }

@@ -1,10 +1,8 @@
-"use client";
-
 import Link from "next/link";
 import { BookOpenText, ChevronRight, CircleAlert, Cpu, GitBranch, Layers3, MessageSquare, RefreshCw, Smartphone, TicketCheck, WalletCards, Wrench } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { ActivityItem, Integration, Mission, Project } from "@/lib/domain";
+import type { ActivityItem, Integration, Mission, Project } from "@/lib/api/types";
 import { formatRelativeTime } from "@/components/mission-status";
 
 function Panel({ title, href, children }: { title: string; href?: string; children: React.ReactNode }) {
@@ -48,7 +46,7 @@ export function ProjectsPanel({ projects, loading }: { projects?: Project[]; loa
           const Icon = projectIcons[project.icon as keyof typeof projectIcons] ?? Layers3;
           return <div key={project.name} className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3">
             <Icon className="size-4 text-muted-foreground" aria-hidden="true" />
-            <div className="min-w-0"><div className="mb-1.5 flex justify-between gap-3 text-sm"><span className="truncate">{project.name}</span><span className="font-mono text-xs text-muted-foreground">{project.healthPercent}%</span></div><div className="h-1.5 overflow-hidden rounded-full bg-muted"><div className={`h-full rounded-full ${project.healthPercent >= 70 ? "bg-success" : project.healthPercent >= 50 ? "bg-warning" : "bg-destructive"}`} style={{ width: `${project.healthPercent}%` }} /></div></div>
+            <div className="min-w-0"><div className="mb-1.5 flex justify-between gap-3 text-sm"><span className="truncate">{project.name}</span><span className="font-mono text-xs text-muted-foreground">{project.health_pct}%</span></div><div className="h-1.5 overflow-hidden rounded-full bg-muted"><div className={`h-full rounded-full ${project.health_pct >= 70 ? "bg-success" : project.health_pct >= 50 ? "bg-warning" : "bg-destructive"}`} style={{ width: `${project.health_pct}%` }} /></div></div>
           </div>;
         })}
       </div>}
@@ -70,7 +68,7 @@ export function ActivityPanel({ activity, loading }: { activity?: ActivityItem[]
       {loading ? <Skeleton className="h-52 w-full" /> : !activity?.length ? <p className="text-sm text-muted-foreground">Activity will appear after the first mission runs.</p> : <ol className="space-y-4">
         {activity.slice(0, 5).map((item) => {
           const Icon = activityIcon(item);
-          return <li key={item.id} className="grid grid-cols-[auto_minmax(0,1fr)] gap-3"><span className="grid size-8 place-items-center rounded-full bg-surface-inset"><Icon className="size-3.5" aria-hidden="true" /></span><div className="min-w-0"><div className="truncate text-sm font-medium capitalize">{item.title}</div><p className="line-clamp-2 text-xs leading-5 text-muted-foreground">{item.detail}</p><time className="font-mono text-xs text-muted-foreground" dateTime={item.createdAt}>{formatRelativeTime(item.createdAt)}</time></div></li>;
+          return <li key={item.id} className="grid grid-cols-[auto_minmax(0,1fr)] gap-3"><span className="grid size-8 place-items-center rounded-full bg-surface-inset"><Icon className="size-3.5" aria-hidden="true" /></span><div className="min-w-0"><div className="truncate text-sm font-medium capitalize">{item.title}</div><p className="line-clamp-2 text-xs leading-5 text-muted-foreground">{item.detail}</p><time className="font-mono text-xs text-muted-foreground" dateTime={item.created_at}>{formatRelativeTime(item.created_at)}</time></div></li>;
         })}
       </ol>}
     </Panel>
@@ -91,12 +89,12 @@ export function AgentInsightsPanel({ missions }: { missions?: Mission[] }) {
   );
 }
 
-export function QuickActionsPanel({ onPick }: { onPick: (prompt: string) => void }) {
+export function QuickActionsPanel() {
   const actions = [
     ["Summarize recent work", "Check recently merged pull requests and summarize what shipped."],
     ["Find open pull requests", "Find open pull requests that still need attention."],
     ["Update Jira from GitHub", "Check merged pull requests and update matching Jira issues to Done."],
     ["Notify the team", "Post a concise project status update in Slack."],
   ];
-  return <Panel title="Quick actions"><div className="divide-y">{actions.map(([label, prompt]) => <button type="button" key={label} onClick={() => onPick(prompt)} className="flex min-h-11 w-full items-center justify-between gap-3 py-2 text-left text-sm hover:text-primary"><span>{label}</span><ChevronRight className="size-4 shrink-0 text-muted-foreground" /></button>)}</div></Panel>;
+  return <Panel title="Quick actions"><div className="divide-y">{actions.map(([label, prompt]) => <Link key={label} href={`/dashboard?prompt=${encodeURIComponent(prompt)}&compose=1`} className="flex min-h-11 w-full items-center justify-between gap-3 py-2 text-left text-sm hover:text-primary"><span>{label}</span><ChevronRight className="size-4 shrink-0 text-muted-foreground" /></Link>)}</div></Panel>;
 }
