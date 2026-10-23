@@ -1,6 +1,7 @@
 import http from "node:http";
 import { Command } from "@langchain/langgraph";
 import { agentGraph } from "./graph/graph.js";
+import type { AgentStateType } from "./graph/state.js";
 import {
   analyzeMission,
   type AgentContextRequestBody,
@@ -15,14 +16,16 @@ import {
 const PORT = Number(process.env.AGENT_PORT ?? "4010");
 
 /**
- * Bearer check for the backend contract. Open when no key is configured
- * (local/dev); enforced when AGENT_SERVICE_API_KEY is set.
+ * Bearer check for the backend contract. Authentication is fail-closed by
+ * default. Local development may explicitly opt out with
+ * AGENT_ALLOW_UNAUTHENTICATED=true.
  */
 function isAuthorized(request: http.IncomingMessage): boolean {
   const expected = process.env.AGENT_SERVICE_API_KEY;
 
   if (!expected) {
-    return true;
+    return process.env.NODE_ENV !== "production"
+      && process.env.AGENT_ALLOW_UNAUTHENTICATED === "true";
   }
 
   return request.headers.authorization === `Bearer ${expected}`;
@@ -38,7 +41,7 @@ const missions = new Map<
   string,
   {
     status: string;
-    state: unknown;
+    state: AgentStateType;
   }
 >();
 
@@ -47,9 +50,10 @@ function json(
   statusCode: number,
   body: unknown,
 ) {
+  const allowedOrigin = process.env.AGENT_ALLOWED_ORIGIN ?? "http://localhost:3000";
   response.writeHead(statusCode, {
     "Content-Type": "application/json",
-    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Origin": allowedOrigin,
     "Access-Control-Allow-Headers": "Content-Type",
     "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
   });
@@ -102,7 +106,7 @@ function buildMissionInput(
   };
 }
 
-type MissionStateLike = Record<string, any>;
+type MissionStateLike = AgentStateType & { __interrupt__?: unknown };
 
 function deriveStatus(
   state: MissionStateLike,
@@ -148,8 +152,9 @@ const server = http.createServer(
   async (request, response) => {
     try {
       if (request.method === "OPTIONS") {
+        const allowedOrigin = process.env.AGENT_ALLOWED_ORIGIN ?? "http://localhost:3000";
         response.writeHead(204, {
-          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Origin": allowedOrigin,
           "Access-Control-Allow-Headers":
             "Content-Type",
           "Access-Control-Allow-Methods":
@@ -176,18 +181,15 @@ const server = http.createServer(
         return;
       }
 
+      if (!isAuthorized(request)) {
+        json(response, 401, { error: "Unauthorized" });
+        return;
+      }
+
       if (
         request.method === "POST" &&
         url.pathname === "/v1/analyze"
       ) {
-        if (!isAuthorized(request)) {
-          json(response, 401, {
-            error: "Unauthorized",
-          });
-
-          return;
-        }
-
         const rawBody = await readBody(request);
 
         let body: AgentContextRequestBody;

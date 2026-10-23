@@ -1,6 +1,19 @@
 name: parallax
 
 services:
+  frontend:
+    build:
+      context: .
+      target: frontend-runner
+    environment:
+      PARALLAX_API_URL: http://api:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
   api:
     build: .
     command: ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"]
