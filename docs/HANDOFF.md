@@ -2,14 +2,14 @@
 
 ## Current state
 
-- Branch: `feature/backend-development`
+- Branch: `main`
 - Phase 1: complete and committed as `b5ff4ec`
 - Phase 2: complete and committed as `16016b4`
 - Phase 3: complete and committed as `e3f8027`
 - Phase 4: complete and committed as `1809c98`
 - Phase 5: complete and committed as `5030171`
 - Phase 6 and 7: complete and committed as `a5f141f`
-- Phase 8: complete and verified in the working tree; awaiting commit
+- Phase 8: frontend and QA foundation complete
 - Next milestone: frontend/Agent/deployment-team integration and live-vendor acceptance testing
 
 ## Phase 3 implementation
@@ -114,7 +114,9 @@ Workspace endpoints:
 
 ## Migration
 
-`20260913_0005_policy_approvals` and `20260913_0006_execution_verification` follow the Phase-5 migration.
+`20260913_0005_policy_approvals`, `20260913_0006_execution_verification`, and
+`20260913_0007_knowledge_base` follow the Phase-5 migration. The current Alembic
+head is `20260913_0007`.
 
 ## Environment variables
 
