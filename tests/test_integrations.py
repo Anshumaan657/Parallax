@@ -55,6 +55,33 @@ def test_mock_connection_checks_and_capabilities(client: TestClient) -> None:
     assert all(item["connected"] for item in statuses)
 
 
+def test_workspace_can_register_and_list_github_repositories(client: TestClient) -> None:
+    headers = auth(client)
+    registered = client.post(
+        "/api/integrations/github/repositories",
+        headers=headers,
+        json={"full_name": "acme/service", "default_branch": "main"},
+    )
+    assert registered.status_code == 201
+    body = registered.json()
+    assert body["full_name"] == "acme/service"
+    assert body["project_id"]
+    assert body["external_id"] == "mock-repository"
+
+    duplicate = client.post(
+        "/api/integrations/github/repositories",
+        headers=headers,
+        json={"full_name": "acme/service"},
+    )
+    assert duplicate.status_code == 409
+
+    repositories = client.get(
+        "/api/integrations/github/repositories", headers=headers
+    )
+    assert repositories.status_code == 200
+    assert [item["full_name"] for item in repositories.json()] == ["acme/service"]
+
+
 def test_real_mode_missing_credentials_is_disconnected(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
