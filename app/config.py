@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     integration_timeout_seconds: float = Field(default=10.0, ge=1, le=60)
     github_token: SecretStr = SecretStr("")
     github_default_repo: str = ""
+    github_webhook_secret: SecretStr = SecretStr("")
     slack_bot_token: SecretStr = SecretStr("")
     slack_default_channel: str = "#engineering"
     jira_base_url: str = ""

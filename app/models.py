@@ -184,6 +184,31 @@ class Repository(TimestampMixin, Base):
     default_branch: Mapped[str] = mapped_column(String(255), default="main")
 
 
+class GitHubWebhookDelivery(Base):
+    __tablename__ = "github_webhook_deliveries"
+    __table_args__ = (
+        UniqueConstraint("delivery_id", name="uq_github_webhook_delivery_id"),
+        Index("ix_github_webhook_workspace_created", "workspace_id", "created_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    workspace_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("workspaces.id", ondelete="CASCADE"), index=True
+    )
+    repository_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("repositories.id", ondelete="CASCADE"), index=True
+    )
+    delivery_id: Mapped[str] = mapped_column(String(255))
+    event_type: Mapped[str] = mapped_column(String(120))
+    action: Mapped[str | None] = mapped_column(String(120))
+    repository_full_name: Mapped[str] = mapped_column(String(255))
+    payload: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    status: Mapped[str] = mapped_column(String(30), default="received")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
 class Integration(TimestampMixin, Base):
     __tablename__ = "integrations"
     __table_args__ = (
