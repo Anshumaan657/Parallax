@@ -31,6 +31,11 @@ def upgrade() -> None:
             sa.ForeignKey("repositories.id", ondelete="CASCADE"),
             nullable=False,
         ),
+        sa.Column(
+            "mission_id",
+            sa.Uuid(),
+            sa.ForeignKey("missions.id", ondelete="SET NULL"),
+        ),
         sa.Column("delivery_id", sa.String(255), nullable=False),
         sa.Column("event_type", sa.String(120), nullable=False),
         sa.Column("action", sa.String(120)),

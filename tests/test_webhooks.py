@@ -8,7 +8,7 @@ from pydantic import SecretStr
 from sqlalchemy import select
 
 from app.config import settings
-from app.models import GitHubWebhookDelivery, IntegrationProvider, Repository
+from app.models import GitHubWebhookDelivery, IntegrationProvider, Project, Repository
 
 
 def _signed_headers(body: bytes, secret: str = "webhook-secret") -> dict[str, str]:
@@ -77,12 +77,18 @@ def test_github_webhook_persists_once_and_deduplicates(client: TestClient, monke
 
     async def register_repository() -> None:
         async with factory() as session:
+            project = await session.scalar(
+                select(Project).where(
+                    Project.workspace_id == workspace_id, Project.name == "General"
+                )
+            )
             session.add(
                 Repository(
                     workspace_id=workspace_id,
                     provider=IntegrationProvider.GITHUB,
                     external_id="42",
                     full_name="acme/service",
+                    project_id=project.id if project else None,
                 )
             )
             await session.commit()
@@ -96,6 +102,8 @@ def test_github_webhook_persists_once_and_deduplicates(client: TestClient, monke
     second = client.post("/api/webhooks/github", content=body, headers=headers)
     assert first.status_code == 202
     assert first.json()["accepted"] is True
+    assert first.json()["status"] == "queued"
+    assert first.json()["mission_id"]
     assert second.status_code == 202
     assert second.json()["duplicate"] is True
 

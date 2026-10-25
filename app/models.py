@@ -198,6 +198,9 @@ class GitHubWebhookDelivery(Base):
     repository_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("repositories.id", ondelete="CASCADE"), index=True
     )
+    mission_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("missions.id", ondelete="SET NULL"), index=True
+    )
     delivery_id: Mapped[str] = mapped_column(String(255))
     event_type: Mapped[str] = mapped_column(String(120))
     action: Mapped[str | None] = mapped_column(String(120))
