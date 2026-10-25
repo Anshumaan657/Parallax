@@ -21,6 +21,7 @@ from app.routers.executions import router as executions_router
 from app.routers.health import router as health_router
 from app.routers.integrations import router as integrations_router
 from app.routers.missions import router as missions_router
+from app.routers.webhooks import router as webhooks_router
 from app.routers.workspaces import router as workspaces_router
 
 configure_logging()
@@ -99,6 +100,7 @@ app.include_router(executions_router)
 app.include_router(missions_router)
 app.include_router(dashboard_router)
 app.include_router(integrations_router)
+app.include_router(webhooks_router)
 
 
 @app.get("/metrics", include_in_schema=False)
