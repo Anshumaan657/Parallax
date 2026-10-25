@@ -26,3 +26,5 @@ async def test_event_mission_collects_the_specific_pull_request(
     assert pull.key == "github:pull_request:7"
     assert pull.external_id == "mock-pr-7"
     assert pull.title == "Mock PR #7"
+    assert any(item.key.endswith(":files") for item in context.evidence)
+    assert any(item.key.endswith(":commits") for item in context.evidence)

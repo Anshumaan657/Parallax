@@ -113,6 +113,20 @@ class MockGitHubAdapter(MockAdapter):
     async def list_pull_requests(self, full_name: str, state: str = "open") -> list[dict[str, Any]]:
         return [{"id": "mock-pr-1", "number": 1, "title": "Mock PR #1", "state": state}]
 
+    async def get_pull_request_files(self, full_name: str, number: int) -> list[dict[str, Any]]:
+        return [
+            {
+                "filename": "app/example.py",
+                "status": "modified",
+                "additions": 3,
+                "deletions": 1,
+                "changes": 4,
+            }
+        ]
+
+    async def get_pull_request_commits(self, full_name: str, number: int) -> list[dict[str, Any]]:
+        return [{"sha": f"mock-sha-{number}", "commit": {"message": "Mock change"}}]
+
     async def get_contents(
         self, full_name: str, path: str, ref: str | None = None
     ) -> dict[str, Any]:

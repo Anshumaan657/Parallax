@@ -64,6 +64,47 @@ async def collect_context(mission: Mission, config: Settings = settings) -> Coll
                         data=pull.data,
                     )
                 )
+                files = await github.get_pull_request_files(source_repository, source_number)
+                evidence.append(
+                    CollectedEvidence(
+                        key=f"github:pull_request:{source_number}:files",
+                        provider=IntegrationProvider.GITHUB,
+                        external_id=f"{source_repository}#{source_number}:files",
+                        title="Pull request changed files",
+                        excerpt=_compact(files, 2000),
+                        url=pull.url,
+                        data={"files": files},
+                    )
+                )
+                commits = await github.get_pull_request_commits(source_repository, source_number)
+                evidence.append(
+                    CollectedEvidence(
+                        key=f"github:pull_request:{source_number}:commits",
+                        provider=IntegrationProvider.GITHUB,
+                        external_id=f"{source_repository}#{source_number}:commits",
+                        title="Pull request commits",
+                        excerpt=_compact(commits, 2000),
+                        url=pull.url,
+                        data={"commits": commits},
+                    )
+                )
+                for codeowners_path in (".github/CODEOWNERS", "CODEOWNERS", "docs/CODEOWNERS"):
+                    try:
+                        codeowners = await github.get_contents(source_repository, codeowners_path)
+                    except AdapterError:
+                        continue
+                    evidence.append(
+                        CollectedEvidence(
+                            key=f"github:repository:codeowners:{codeowners_path}",
+                            provider=IntegrationProvider.GITHUB,
+                            external_id=f"{source_repository}:{codeowners_path}",
+                            title=f"CODEOWNERS ({codeowners_path})",
+                            excerpt=_compact(codeowners, 2000),
+                            url=pull.url,
+                            data=codeowners,
+                        )
+                    )
+                    break
             else:
                 repository = config.github_default_repo or "parallax/demo"
                 pulls = await github.list_pull_requests(repository)

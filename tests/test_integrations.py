@@ -95,6 +95,10 @@ async def test_github_read_client_uses_expected_contract() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         if request.url.path == "/user":
             return httpx.Response(200, json={"login": "octocat"})
+        if request.url.path.endswith("/files"):
+            return httpx.Response(200, json=[{"filename": "app.py", "status": "modified"}])
+        if request.url.path.endswith("/commits"):
+            return httpx.Response(200, json=[{"sha": "abc", "commit": {"message": "Change"}}])
         return httpx.Response(
             200,
             json={
@@ -110,6 +114,8 @@ async def test_github_read_client_uses_expected_contract() -> None:
         pull = await adapter.get_pull_request("acme/service", 7)
         assert pull.external_id == "42"
         assert pull.title == "Safe change"
+        assert (await adapter.get_pull_request_files("acme/service", 7))[0]["filename"] == "app.py"
+        assert (await adapter.get_pull_request_commits("acme/service", 7))[0]["sha"] == "abc"
     finally:
         await adapter.close()
 
