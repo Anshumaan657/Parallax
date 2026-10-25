@@ -20,6 +20,16 @@ class GitHubAdapter:
             description="Pull request metadata and diff",
         ),
         IntegrationCapability(
+            operation="pull_request.files",
+            access="read",
+            description="Pull request changed files",
+        ),
+        IntegrationCapability(
+            operation="pull_request.commits",
+            access="read",
+            description="Pull request commits",
+        ),
+        IntegrationCapability(
             operation="pull_request.list", access="read", description="Repository pull requests"
         ),
         IntegrationCapability(
@@ -82,6 +92,18 @@ class GitHubAdapter:
     async def list_pull_requests(self, full_name: str, state: str = "open") -> list[dict[str, Any]]:
         data: list[dict[str, Any]] = await self.http.request(
             "GET", f"/repos/{full_name}/pulls", params={"state": state}
+        )
+        return data
+
+    async def get_pull_request_files(self, full_name: str, number: int) -> list[dict[str, Any]]:
+        data: list[dict[str, Any]] = await self.http.request(
+            "GET", f"/repos/{full_name}/pulls/{number}/files", params={"per_page": 100}
+        )
+        return data
+
+    async def get_pull_request_commits(self, full_name: str, number: int) -> list[dict[str, Any]]:
+        data: list[dict[str, Any]] = await self.http.request(
+            "GET", f"/repos/{full_name}/pulls/{number}/commits", params={"per_page": 100}
         )
         return data
 

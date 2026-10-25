@@ -323,6 +323,7 @@ class Mission(TimestampMixin, Base):
     result_summary: Mapped[str | None] = mapped_column(Text)
     correlation_id: Mapped[uuid.UUID] = mapped_column(index=True)
     version: Mapped[int] = mapped_column(default=1)
+    source_context: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
 
     steps: Mapped[list[MissionStep]] = relationship(
         back_populates="mission", cascade="all, delete-orphan", order_by="MissionStep.sequence"

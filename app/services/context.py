@@ -43,22 +43,84 @@ async def collect_context(mission: Mission, config: Settings = settings) -> Coll
     jira = build_jira_adapter(config)
     notion = build_notion_adapter(config)
     try:
-        repository = config.github_default_repo or "parallax/demo"
         try:
-            pulls = await github.list_pull_requests(repository)
-            for index, pull in enumerate(pulls[:20], start=1):
-                number = pull.get("number", index)
+            source = mission.source_context
+            source_repository = source.get("repository")
+            source_number = source.get("pull_request_number")
+            if (
+                source.get("provider") == "github"
+                and isinstance(source_repository, str)
+                and isinstance(source_number, int)
+            ):
+                pull_record = await github.get_pull_request(source_repository, source_number)
                 evidence.append(
                     CollectedEvidence(
-                        key=f"github:pull_request:{number}",
+                        key=f"github:pull_request:{source_number}",
                         provider=IntegrationProvider.GITHUB,
-                        external_id=str(pull.get("id", number)),
-                        title=str(pull.get("title", f"Pull request #{number}")),
-                        excerpt=_compact(pull),
-                        url=pull.get("html_url"),
-                        data=pull,
+                        external_id=pull_record.external_id,
+                        title=pull_record.title,
+                        excerpt=_compact(pull_record.data),
+                        url=pull_record.url,
+                        data=pull_record.data,
                     )
                 )
+                files = await github.get_pull_request_files(source_repository, source_number)
+                evidence.append(
+                    CollectedEvidence(
+                        key=f"github:pull_request:{source_number}:files",
+                        provider=IntegrationProvider.GITHUB,
+                        external_id=f"{source_repository}#{source_number}:files",
+                        title="Pull request changed files",
+                        excerpt=_compact(files, 2000),
+                        url=pull_record.url,
+                        data={"files": files},
+                    )
+                )
+                commits = await github.get_pull_request_commits(source_repository, source_number)
+                evidence.append(
+                    CollectedEvidence(
+                        key=f"github:pull_request:{source_number}:commits",
+                        provider=IntegrationProvider.GITHUB,
+                        external_id=f"{source_repository}#{source_number}:commits",
+                        title="Pull request commits",
+                        excerpt=_compact(commits, 2000),
+                        url=pull_record.url,
+                        data={"commits": commits},
+                    )
+                )
+                for codeowners_path in (".github/CODEOWNERS", "CODEOWNERS", "docs/CODEOWNERS"):
+                    try:
+                        codeowners = await github.get_contents(source_repository, codeowners_path)
+                    except AdapterError:
+                        continue
+                    evidence.append(
+                        CollectedEvidence(
+                            key=f"github:repository:codeowners:{codeowners_path}",
+                            provider=IntegrationProvider.GITHUB,
+                            external_id=f"{source_repository}:{codeowners_path}",
+                            title=f"CODEOWNERS ({codeowners_path})",
+                            excerpt=_compact(codeowners, 2000),
+                            url=pull_record.url,
+                            data=codeowners,
+                        )
+                    )
+                    break
+            else:
+                repository = config.github_default_repo or "parallax/demo"
+                pulls = await github.list_pull_requests(repository)
+                for index, pull_item in enumerate(pulls[:20], start=1):
+                    number = pull_item.get("number", index)
+                    evidence.append(
+                        CollectedEvidence(
+                            key=f"github:pull_request:{number}",
+                            provider=IntegrationProvider.GITHUB,
+                            external_id=str(pull_item.get("id", number)),
+                            title=str(pull_item.get("title", f"Pull request #{number}")),
+                            excerpt=_compact(pull_item),
+                            url=pull_item.get("html_url"),
+                            data=pull_item,
+                        )
+                    )
         except AdapterError as exc:
             errors["github"] = str(exc)
 
