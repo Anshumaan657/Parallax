@@ -177,7 +177,8 @@ export type ReviewPlan = z.infer<typeof ReviewPlanSchema>;
 export const ActionTypeSchema = z.enum([
   "jira.create_issue",
   "jira.update_issue",
-  "github.update_pull_request",
+  "github.pull_request.comment",
+  "github.pull_request.review",
   "notion.update_documentation",
 ]);
 

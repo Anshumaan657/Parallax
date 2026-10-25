@@ -58,7 +58,7 @@ export async function proposeActions(
   if (state.pr) {
     actions.push({
       id: "action-github-update",
-      type: "github.update_pull_request",
+      type: "github.pull_request.comment",
       target: state.pr.url,
       reason:
         `Update PR ${state.pr.id} with the approved review status and relevant findings.`,

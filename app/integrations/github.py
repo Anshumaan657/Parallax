@@ -3,7 +3,13 @@ from typing import Any
 
 import httpx
 
-from app.integrations.contracts import AdapterHealth, ExternalRecord, IntegrationCapability
+from app.integrations.contracts import (
+    AdapterHealth,
+    ApprovedWriteContext,
+    ExternalRecord,
+    IntegrationCapability,
+    require_approval,
+)
 from app.integrations.http import VendorHttpClient
 from app.models import IntegrationProvider
 
@@ -34,6 +40,16 @@ class GitHubAdapter:
         ),
         IntegrationCapability(
             operation="contents.get", access="read", description="CODEOWNERS and repository files"
+        ),
+        IntegrationCapability(
+            operation="pull_request.comment",
+            access="write",
+            description="Post an approved pull request comment",
+        ),
+        IntegrationCapability(
+            operation="pull_request.review",
+            access="write",
+            description="Submit an approved pull request review",
         ),
     ]
 
@@ -115,6 +131,75 @@ class GitHubAdapter:
             "GET", f"/repos/{full_name}/contents/{path.lstrip('/')}", params=params
         )
         return data
+
+    async def create_pull_request_comment(
+        self,
+        full_name: str,
+        number: int,
+        body: str,
+        approval: ApprovedWriteContext | None,
+    ) -> ExternalRecord:
+        require_approval(approval)
+        data: dict[str, Any] = await self.http.request(
+            "POST", f"/repos/{full_name}/issues/{number}/comments", json={"body": body}
+        )
+        return ExternalRecord(
+            provider=self.provider,
+            external_id=str(data["id"]),
+            url=data.get("html_url"),
+            title=f"GitHub comment on PR #{number}",
+            data=data,
+        )
+
+    async def create_pull_request_review(
+        self,
+        full_name: str,
+        number: int,
+        body: str,
+        event: str,
+        approval: ApprovedWriteContext | None,
+    ) -> ExternalRecord:
+        require_approval(approval)
+        if event not in {"COMMENT", "APPROVE", "REQUEST_CHANGES"}:
+            raise ValueError("Unsupported GitHub review event")
+        data: dict[str, Any] = await self.http.request(
+            "POST",
+            f"/repos/{full_name}/pulls/{number}/reviews",
+            json={"body": body, "event": event},
+        )
+        return ExternalRecord(
+            provider=self.provider,
+            external_id=str(data["id"]),
+            url=data.get("html_url"),
+            title=f"GitHub review on PR #{number}",
+            data=data,
+        )
+
+    async def get_issue_comment(self, comment_id: str) -> ExternalRecord:
+        repository, raw_id = comment_id.split(":", 1)
+        data: dict[str, Any] = await self.http.request(
+            "GET", f"/repos/{repository}/issues/comments/{raw_id}"
+        )
+        return ExternalRecord(
+            provider=self.provider,
+            external_id=str(data["id"]),
+            url=data.get("html_url"),
+            title="GitHub pull request comment",
+            data=data,
+        )
+
+    async def get_pull_request_review(self, review_id: str) -> ExternalRecord:
+        repository, raw_id = review_id.split(":", 1)
+        data: dict[str, Any] = await self.http.request(
+            "GET", f"/repos/{repository}/pulls/reviews/{raw_id}"
+        )
+        return ExternalRecord(
+            provider=self.provider,
+            external_id=str(data["id"]),
+            url=data.get("html_url"),
+            title="GitHub pull request review",
+            data=data,
+        )
 
     async def close(self) -> None:
         await self.http.close()

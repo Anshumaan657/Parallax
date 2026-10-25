@@ -35,7 +35,23 @@ def evaluate_actions(
         if unknown:
             reasons.append(f"{label} cites unknown evidence")
         if action.provider == IntegrationProvider.GITHUB:
-            reasons.append(f"{label} attempts a prohibited GitHub write")
+            repository = action.payload.get("repository")
+            pull_number = action.payload.get("pull_number")
+            body = action.payload.get("body")
+            if not isinstance(repository, str) or not repository.strip():
+                reasons.append(f"{label} requires a GitHub repository")
+            if not isinstance(pull_number, int) or pull_number < 1:
+                reasons.append(f"{label} requires a valid GitHub pull number")
+            if not isinstance(body, str) or not body.strip() or len(body) > 10_000:
+                reasons.append(
+                    f"{label} requires a non-empty GitHub body of at most 10,000 characters"
+                )
+            if action.operation == "pull_request.review" and action.payload.get("event") not in {
+                "COMMENT",
+                "APPROVE",
+                "REQUEST_CHANGES",
+            }:
+                reasons.append(f"{label} requires a supported GitHub review event")
         if action.provider == IntegrationProvider.JIRA:
             if action.operation == "issue.create" and not isinstance(
                 action.payload.get("fields"), dict
