@@ -119,6 +119,9 @@ async def github_webhook(
             "status": "ignored",
         }
 
+    assert isinstance(pull_request, dict)
+    pull_request_data: dict[str, Any] = pull_request
+
     if repository.project_id is None:
         delivery.status = "ignored"
         await session.commit()
@@ -147,7 +150,7 @@ async def github_webhook(
         .order_by(WorkspaceMembership.created_at)
         .limit(1)
     )
-    pull_number = pull_request.get("number")
+    pull_number = pull_request_data.get("number")
     if project is None or creator is None or not isinstance(pull_number, int):
         delivery.status = "ignored"
         await session.commit()
@@ -159,7 +162,7 @@ async def github_webhook(
             "reason": "repository_configuration_incomplete",
         }
 
-    title = pull_request.get("title")
+    title = pull_request_data.get("title")
     title_text = title.strip() if isinstance(title, str) else f"Pull request #{pull_number}"
     mission = Mission(
         workspace_id=repository.workspace_id,
@@ -174,8 +177,8 @@ async def github_webhook(
             "provider": "github",
             "repository": full_name.strip(),
             "pull_request_number": pull_number,
-            "pull_request_id": pull_request.get("id"),
-            "url": pull_request.get("html_url"),
+            "pull_request_id": pull_request_data.get("id"),
+            "url": pull_request_data.get("html_url"),
         },
         status=MissionStatus.QUEUED,
         progress_current=0,

@@ -52,16 +52,16 @@ async def collect_context(mission: Mission, config: Settings = settings) -> Coll
                 and isinstance(source_repository, str)
                 and isinstance(source_number, int)
             ):
-                pull = await github.get_pull_request(source_repository, source_number)
+                pull_record = await github.get_pull_request(source_repository, source_number)
                 evidence.append(
                     CollectedEvidence(
                         key=f"github:pull_request:{source_number}",
                         provider=IntegrationProvider.GITHUB,
-                        external_id=pull.external_id,
-                        title=pull.title,
-                        excerpt=_compact(pull.data),
-                        url=pull.url,
-                        data=pull.data,
+                        external_id=pull_record.external_id,
+                        title=pull_record.title,
+                        excerpt=_compact(pull_record.data),
+                        url=pull_record.url,
+                        data=pull_record.data,
                     )
                 )
                 files = await github.get_pull_request_files(source_repository, source_number)
@@ -72,7 +72,7 @@ async def collect_context(mission: Mission, config: Settings = settings) -> Coll
                         external_id=f"{source_repository}#{source_number}:files",
                         title="Pull request changed files",
                         excerpt=_compact(files, 2000),
-                        url=pull.url,
+                        url=pull_record.url,
                         data={"files": files},
                     )
                 )
@@ -84,7 +84,7 @@ async def collect_context(mission: Mission, config: Settings = settings) -> Coll
                         external_id=f"{source_repository}#{source_number}:commits",
                         title="Pull request commits",
                         excerpt=_compact(commits, 2000),
-                        url=pull.url,
+                        url=pull_record.url,
                         data={"commits": commits},
                     )
                 )
@@ -100,7 +100,7 @@ async def collect_context(mission: Mission, config: Settings = settings) -> Coll
                             external_id=f"{source_repository}:{codeowners_path}",
                             title=f"CODEOWNERS ({codeowners_path})",
                             excerpt=_compact(codeowners, 2000),
-                            url=pull.url,
+                            url=pull_record.url,
                             data=codeowners,
                         )
                     )
@@ -108,17 +108,17 @@ async def collect_context(mission: Mission, config: Settings = settings) -> Coll
             else:
                 repository = config.github_default_repo or "parallax/demo"
                 pulls = await github.list_pull_requests(repository)
-                for index, pull in enumerate(pulls[:20], start=1):
-                    number = pull.get("number", index)
+                for index, pull_item in enumerate(pulls[:20], start=1):
+                    number = pull_item.get("number", index)
                     evidence.append(
                         CollectedEvidence(
                             key=f"github:pull_request:{number}",
                             provider=IntegrationProvider.GITHUB,
-                            external_id=str(pull.get("id", number)),
-                            title=str(pull.get("title", f"Pull request #{number}")),
-                            excerpt=_compact(pull),
-                            url=pull.get("html_url"),
-                            data=pull,
+                            external_id=str(pull_item.get("id", number)),
+                            title=str(pull_item.get("title", f"Pull request #{number}")),
+                            excerpt=_compact(pull_item),
+                            url=pull_item.get("html_url"),
+                            data=pull_item,
                         )
                     )
         except AdapterError as exc:
