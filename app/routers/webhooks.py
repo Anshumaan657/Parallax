@@ -170,6 +170,13 @@ async def github_webhook(
             "Assess risk, changed files, reviewer needs, and proposed follow-up actions."
         )[:10_000],
         project_name=project.name,
+        source_context={
+            "provider": "github",
+            "repository": full_name.strip(),
+            "pull_request_number": pull_number,
+            "pull_request_id": pull_request.get("id"),
+            "url": pull_request.get("html_url"),
+        },
         status=MissionStatus.QUEUED,
         progress_current=0,
         progress_total=1,
