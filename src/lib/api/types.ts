@@ -31,6 +31,7 @@ export type IntegrationProvider = ApiSchemas["IntegrationProvider"];
 export type ReadyResponse = ApiSchemas["ReadyResponse"];
 export type GitHubRepository = ApiSchemas["GitHubRepositoryRead"];
 export type GitHubRepositoryCreate = ApiSchemas["GitHubRepositoryCreate"];
+export type GitHubRepositoryUpdate = ApiSchemas["GitHubRepositoryUpdate"];
 export type HealthResponse = ApiSchemas["HealthResponse"];
 
 export const terminalMissionStatuses = new Set<MissionStatus>([

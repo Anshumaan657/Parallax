@@ -1,6 +1,6 @@
 "use server";
 import { revalidatePath } from "next/cache";
-import { checkIntegration, registerGitHubRepository, revokeGitHubToken, updateMemberRole } from "@/lib/api/server";
+import { checkIntegration, registerGitHubRepository, removeGitHubRepository, revokeGitHubToken, updateGitHubRepository, updateMemberRole } from "@/lib/api/server";
 import type { IntegrationProvider, WorkspaceRole } from "@/lib/api/types";
 import { ApiError } from "@/lib/api/errors";
 import type { MutationState } from "@/app/actions/missions";
@@ -21,6 +21,24 @@ export async function registerGitHubRepositoryAction(state: MutationState, formD
 export async function revokeGitHubTokenAction(state: MutationState, formData: FormData): Promise<MutationState> {
   void state; void formData;
   try { await revokeGitHubToken(); } catch (error) { return failure(error); }
+  revalidatePath("/integrations");
+  return {};
+}
+export async function updateGitHubRepositoryAction(repositoryId: string, state: MutationState, formData: FormData): Promise<MutationState> {
+  void state;
+  try {
+    const defaultBranch = String(formData.get("default_branch") ?? "").trim();
+    const webhookEvents = formData.getAll("webhook_events").map(String).map((item) => item.trim()).filter(Boolean);
+    if (!defaultBranch) return { error: "Enter a default branch." };
+    await updateGitHubRepository(repositoryId, { default_branch: defaultBranch, webhook_enabled: formData.get("webhook_enabled") === "on", webhook_events: webhookEvents });
+  } catch (error) { return failure(error); }
+  revalidatePath("/integrations");
+  return {};
+}
+export async function removeGitHubRepositoryAction(repositoryId: string, state: MutationState, formData: FormData): Promise<MutationState> {
+  void state;
+  void formData;
+  try { await removeGitHubRepository(repositoryId); } catch (error) { return failure(error); }
   revalidatePath("/integrations");
   return {};
 }

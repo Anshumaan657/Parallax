@@ -1,3 +1,4 @@
+import uuid
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -23,6 +24,7 @@ from app.schemas import (
     ErrorResponse,
     GitHubRepositoryCreate,
     GitHubRepositoryRead,
+    GitHubRepositoryUpdate,
     IntegrationCapabilitiesRead,
     IntegrationCapabilityRead,
     IntegrationStatusRead,
@@ -168,7 +170,7 @@ async def check_integration(
 async def revoke_github_token(
     request: Request,
     identity: RequestIdentity = Depends(
-        require_roles(WorkspaceRole.OWNER, WorkspaceRole.ADMIN)
+        require_roles(WorkspaceRole.OWNER, WorkspaceRole.ADMIN, WorkspaceRole.MANAGER)
     ),
     session: AsyncSession = Depends(get_session),
 ) -> IntegrationStatusRead:
@@ -242,6 +244,8 @@ async def list_github_repositories(
             external_id=repository.external_id,
             project_id=repository.project_id,
             default_branch=repository.default_branch,
+            webhook_enabled=repository.webhook_enabled,
+            webhook_events=repository.webhook_events,
             created_at=repository.created_at,
         )
         for repository in repositories
@@ -297,6 +301,8 @@ async def register_github_repository(
         external_id=remote.external_id,
         full_name=payload.full_name,
         default_branch=payload.default_branch,
+        webhook_enabled=True,
+        webhook_events=["opened", "reopened", "synchronize", "ready_for_review"],
     )
     session.add(repository)
     try:
@@ -313,5 +319,73 @@ async def register_github_repository(
         external_id=repository.external_id,
         project_id=repository.project_id,
         default_branch=repository.default_branch,
+        webhook_enabled=repository.webhook_enabled,
+        webhook_events=repository.webhook_events,
         created_at=repository.created_at,
     )
+
+
+@router.patch(
+    "/github/repositories/{repository_id}",
+    response_model=GitHubRepositoryRead,
+    responses={**ERRORS, 409: {"model": ErrorResponse}},
+    summary="Update a registered GitHub repository",
+)
+async def update_github_repository(
+    repository_id: uuid.UUID,
+    payload: GitHubRepositoryUpdate,
+    identity: RequestIdentity = Depends(
+        require_roles(WorkspaceRole.OWNER, WorkspaceRole.ADMIN, WorkspaceRole.MANAGER)
+    ),
+    session: AsyncSession = Depends(get_session),
+) -> GitHubRepositoryRead:
+    repository = await session.scalar(
+        select(Repository).where(
+            Repository.id == repository_id,
+            Repository.workspace_id == identity.workspace.id,
+            Repository.provider == IntegrationProvider.GITHUB,
+        )
+    )
+    if repository is None:
+        raise HTTPException(status_code=404, detail="GitHub repository not found")
+    repository.default_branch = payload.default_branch
+    repository.webhook_enabled = payload.webhook_enabled
+    repository.webhook_events = payload.webhook_events
+    await session.commit()
+    await session.refresh(repository)
+    return GitHubRepositoryRead(
+        id=repository.id,
+        full_name=repository.full_name,
+        external_id=repository.external_id,
+        project_id=repository.project_id,
+        default_branch=repository.default_branch,
+        webhook_enabled=repository.webhook_enabled,
+        webhook_events=repository.webhook_events,
+        created_at=repository.created_at,
+    )
+
+
+@router.delete(
+    "/github/repositories/{repository_id}",
+    status_code=204,
+    responses={**ERRORS, 204: {"description": "Repository removed"}},
+    summary="Remove a registered GitHub repository",
+)
+async def remove_github_repository(
+    repository_id: uuid.UUID,
+    identity: RequestIdentity = Depends(
+        require_roles(WorkspaceRole.OWNER, WorkspaceRole.ADMIN)
+    ),
+    session: AsyncSession = Depends(get_session),
+) -> None:
+    repository = await session.scalar(
+        select(Repository).where(
+            Repository.id == repository_id,
+            Repository.workspace_id == identity.workspace.id,
+            Repository.provider == IntegrationProvider.GITHUB,
+        )
+    )
+    if repository is None:
+        raise HTTPException(status_code=404, detail="GitHub repository not found")
+    await session.delete(repository)
+    await session.commit()

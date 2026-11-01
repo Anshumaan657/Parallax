@@ -1,8 +1,10 @@
-import { GitBranch, GitPullRequest, KeyRound, Plus, ShieldCheck } from "lucide-react";
+import { GitBranch, GitPullRequest, KeyRound, Plus, ShieldCheck, Trash2 } from "lucide-react";
 
 import {
   registerGitHubRepositoryAction,
+  removeGitHubRepositoryAction,
   revokeGitHubTokenAction,
+  updateGitHubRepositoryAction,
 } from "@/app/actions/workspace";
 import { MutationForm } from "@/components/mutation-form";
 import { StreamResource } from "@/components/stream-resource";
@@ -60,12 +62,32 @@ export function GitHubIntegrationPanel({
               {(items) => items.length ? (
                 <ul className="divide-y rounded-lg border">
                   {items.map((repository) => (
-                    <li key={repository.id} className="flex items-center justify-between gap-4 px-3 py-3">
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-medium">{repository.full_name}</p>
-                        <p className="mt-1 text-xs text-muted-foreground">Project webhook target · {repository.default_branch}</p>
+                    <li key={repository.id} className="space-y-3 px-3 py-3">
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium">{repository.full_name}</p>
+                          <p className="mt-1 text-xs text-muted-foreground">Project webhook target · {repository.default_branch}</p>
+                        </div>
+                        <span className={repository.webhook_enabled ? "shrink-0 rounded-md bg-success-soft px-2 py-1 text-xs text-success" : "shrink-0 rounded-md bg-muted px-2 py-1 text-xs text-muted-foreground"}>{repository.webhook_enabled ? "Active" : "Disabled"}</span>
                       </div>
-                      <span className="shrink-0 rounded-md bg-success-soft px-2 py-1 text-xs text-success">Active</span>
+                      <MutationForm action={updateGitHubRepositoryAction.bind(null, repository.id)} label="Save repository settings" pendingLabel="Saving…" variant="outline" className="space-y-3">
+                        <label className="block text-xs font-medium">Default branch<Input name="default_branch" className="mt-1.5" defaultValue={repository.default_branch} required /></label>
+                        <label className="flex items-center gap-2 text-xs font-medium"><input type="checkbox" name="webhook_enabled" defaultChecked={repository.webhook_enabled} /> Enable webhook delivery</label>
+                        <fieldset className="space-y-2">
+                          <legend className="text-xs font-medium">Webhook events</legend>
+                          <div className="grid gap-2 sm:grid-cols-2">
+                            {["opened", "reopened", "synchronize", "ready_for_review"].map((event) => (
+                              <label key={event} className="flex items-center gap-2 text-xs text-muted-foreground">
+                                <input type="checkbox" name="webhook_events" value={event} defaultChecked={repository.webhook_events.includes(event)} />
+                                {event}
+                              </label>
+                            ))}
+                          </div>
+                        </fieldset>
+                      </MutationForm>
+                      <MutationForm action={removeGitHubRepositoryAction.bind(null, repository.id)} label="Remove repository" pendingLabel="Removing…" variant="destructive">
+                        <p className="mb-2 flex items-center gap-2 text-xs text-muted-foreground"><Trash2 className="size-3.5" aria-hidden="true" /> Removes the repository registration and stops future webhook processing.</p>
+                      </MutationForm>
                     </li>
                   ))}
                 </ul>

@@ -352,10 +352,27 @@ class GitHubRepositoryCreate(BaseModel):
     default_branch: str = Field(default="main", min_length=1, max_length=255)
 
 
+class GitHubRepositoryUpdate(BaseModel):
+    default_branch: str = Field(min_length=1, max_length=255)
+    webhook_enabled: bool = True
+    webhook_events: list[str] = Field(min_length=1, max_length=20)
+
+    @field_validator("webhook_events")
+    @classmethod
+    def validate_webhook_events(cls, value: list[str]) -> list[str]:
+        allowed = {"opened", "reopened", "synchronize", "ready_for_review"}
+        normalized = sorted({item.strip() for item in value if item.strip()})
+        if not normalized or not set(normalized).issubset(allowed):
+            raise ValueError("Unsupported GitHub webhook event")
+        return normalized
+
+
 class GitHubRepositoryRead(BaseModel):
     id: uuid.UUID
     full_name: str
     external_id: str
     project_id: uuid.UUID | None
     default_branch: str
+    webhook_enabled: bool
+    webhook_events: list[str]
     created_at: datetime

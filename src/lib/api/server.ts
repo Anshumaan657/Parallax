@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 
 import { createBackendClient, unwrap } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/errors";
-import type { ApprovalDecision, ApprovalEdit, GitHubRepositoryCreate, IntegrationProvider, MissionCreate, WorkspaceRole } from "@/lib/api/types";
+import type { ApprovalDecision, ApprovalEdit, GitHubRepositoryCreate, GitHubRepositoryUpdate, IntegrationProvider, MissionCreate, WorkspaceRole } from "@/lib/api/types";
 import { clearTokenCookies, readTokenCookies, setTokenCookies } from "@/lib/auth/cookies";
 import { authDisabled, previewSession } from "@/lib/auth/preview";
 
@@ -91,5 +91,7 @@ export async function cancelBundle(id: string, body: ApprovalDecision) { return 
 export async function editBundle(id: string, body: ApprovalEdit) { return actionCall((c) => c.POST("/api/approvals/{bundle_id}/edit", { params: { path: { bundle_id: id } }, body })); }
 export async function checkIntegration(provider: IntegrationProvider) { return actionCall((c) => c.POST("/api/integrations/{provider}/check", { params: { path: { provider } } })); }
 export async function registerGitHubRepository(body: GitHubRepositoryCreate) { return actionCall((c) => c.POST("/api/integrations/github/repositories", { body })); }
+export async function updateGitHubRepository(id: string, body: GitHubRepositoryUpdate) { return actionCall((c) => c.PATCH("/api/integrations/github/repositories/{repository_id}", { params: { path: { repository_id: id } }, body })); }
+export async function removeGitHubRepository(id: string) { return actionCall((c) => c.DELETE("/api/integrations/github/repositories/{repository_id}", { params: { path: { repository_id: id } } })); }
 export async function revokeGitHubToken() { return actionCall((c) => c.POST("/api/integrations/github/revoke")); }
 export async function updateMemberRole(userId: string, role: WorkspaceRole) { return actionCall((c) => c.PATCH("/api/workspaces/current/members/{user_id}", { params: { path: { user_id: userId } }, body: { role } })); }

@@ -67,6 +67,22 @@ def test_workspace_can_register_and_list_github_repositories(client: TestClient)
     assert body["full_name"] == "acme/service"
     assert body["project_id"]
     assert body["external_id"] == "mock-repository"
+    assert body["webhook_enabled"] is True
+    assert set(body["webhook_events"]) == {"opened", "reopened", "ready_for_review", "synchronize"}
+
+    updated = client.patch(
+        f"/api/integrations/github/repositories/{body['id']}",
+        headers=headers,
+        json={
+            "default_branch": "trunk",
+            "webhook_enabled": False,
+            "webhook_events": ["opened", "synchronize"],
+        },
+    )
+    assert updated.status_code == 200
+    assert updated.json()["default_branch"] == "trunk"
+    assert updated.json()["webhook_enabled"] is False
+    assert set(updated.json()["webhook_events"]) == {"opened", "synchronize"}
 
     duplicate = client.post(
         "/api/integrations/github/repositories",
@@ -80,6 +96,12 @@ def test_workspace_can_register_and_list_github_repositories(client: TestClient)
     )
     assert repositories.status_code == 200
     assert [item["full_name"] for item in repositories.json()] == ["acme/service"]
+
+    removed = client.delete(
+        f"/api/integrations/github/repositories/{body['id']}", headers=headers
+    )
+    assert removed.status_code == 204
+    assert client.get("/api/integrations/github/repositories", headers=headers).json() == []
 
 
 def test_real_mode_missing_credentials_is_disconnected(

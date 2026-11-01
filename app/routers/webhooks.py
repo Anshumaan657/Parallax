@@ -89,6 +89,13 @@ async def github_webhook(
             "delivery_id": x_github_delivery,
         }
 
+    if not repository.webhook_enabled:
+        return {
+            "accepted": False,
+            "reason": "webhook_disabled",
+            "delivery_id": x_github_delivery,
+        }
+
     delivery = GitHubWebhookDelivery(
         workspace_id=repository.workspace_id,
         repository_id=repository.id,
@@ -107,6 +114,7 @@ async def github_webhook(
         x_github_event == "pull_request"
         and isinstance(action, str)
         and action in SUPPORTED_PULL_REQUEST_ACTIONS
+        and action in set(repository.webhook_events)
         and isinstance(pull_request, dict)
     )
     if not is_supported_pull_request:

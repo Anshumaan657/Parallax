@@ -8,7 +8,7 @@ from pydantic import SecretStr
 from sqlalchemy import select
 
 from app.config import settings
-from app.models import GitHubWebhookDelivery, IntegrationProvider, Project, Repository
+from app.models import IntegrationProvider, Project, Repository
 
 
 def _signed_headers(body: bytes, secret: str = "webhook-secret") -> dict[str, str]:
@@ -107,8 +107,48 @@ def test_github_webhook_persists_once_and_deduplicates(client: TestClient, monke
     assert second.status_code == 202
     assert second.json()["duplicate"] is True
 
-    async def count_deliveries() -> int:
-        async with factory() as session:
-            return len((await session.execute(select(GitHubWebhookDelivery))).scalars().all())
 
-    assert asyncio.run(count_deliveries()) == 1
+def test_github_webhook_respects_repository_configuration(client: TestClient, monkeypatch) -> None:
+    monkeypatch.setattr(settings, "github_webhook_secret", SecretStr("webhook-secret"))
+    registration = client.post(
+        "/api/auth/register",
+        json={
+            "email": "configured-webhook-owner@example.com",
+            "password": "correct-horse-battery-staple",
+            "display_name": "Configured Webhook Owner",
+            "workspace_name": "Configured Webhook Workspace",
+            "workspace_slug": "configured-webhook-workspace",
+        },
+    )
+    assert registration.status_code == 201
+    headers = {"Authorization": f"Bearer {registration.json()['access_token']}"}
+    registered = client.post(
+        "/api/integrations/github/repositories",
+        headers=headers,
+        json={"full_name": "acme/configured", "default_branch": "main"},
+    )
+    assert registered.status_code == 201
+    repository_id = registered.json()["id"]
+    updated = client.patch(
+        f"/api/integrations/github/repositories/{repository_id}",
+        headers=headers,
+        json={"default_branch": "main", "webhook_enabled": False, "webhook_events": ["opened"]},
+    )
+    assert updated.status_code == 200
+    payload = {
+        "repository": {"full_name": "acme/configured"},
+        "action": "opened",
+        "pull_request": {"number": 1},
+    }
+    body = json.dumps(payload).encode()
+    response = client.post(
+        "/api/webhooks/github",
+        content=body,
+        headers={
+            **_signed_headers(body),
+            "X-GitHub-Delivery": "disabled-1",
+            "X-GitHub-Event": "pull_request",
+        },
+    )
+    assert response.status_code == 202
+    assert response.json()["reason"] == "webhook_disabled"

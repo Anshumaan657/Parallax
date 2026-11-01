@@ -648,6 +648,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/integrations/github/repositories/{repository_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove a registered GitHub repository */
+        delete: operations["remove_github_repository_api_integrations_github_repositories__repository_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update a registered GitHub repository */
+        patch: operations["update_github_repository_api_integrations_github_repositories__repository_id__patch"];
+        trace?: never;
+    };
     "/api/webhooks/github": {
         parameters: {
             query?: never;
@@ -991,11 +1009,27 @@ export interface components {
             project_id: string | null;
             /** Default Branch */
             default_branch: string;
+            /** Webhook Enabled */
+            webhook_enabled: boolean;
+            /** Webhook Events */
+            webhook_events: string[];
             /**
              * Created At
              * Format: date-time
              */
             created_at: string;
+        };
+        /** GitHubRepositoryUpdate */
+        GitHubRepositoryUpdate: {
+            /** Default Branch */
+            default_branch: string;
+            /**
+             * Webhook Enabled
+             * @default true
+             */
+            webhook_enabled: boolean;
+            /** Webhook Events */
+            webhook_events: string[];
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -3741,6 +3775,155 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GitHubRepositoryRead"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Bad Gateway */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    remove_github_repository_api_integrations_github_repositories__repository_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Workspace-ID"?: string | null;
+            };
+            path: {
+                repository_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Repository removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Bad Gateway */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    update_github_repository_api_integrations_github_repositories__repository_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Workspace-ID"?: string | null;
+            };
+            path: {
+                repository_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GitHubRepositoryUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };

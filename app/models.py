@@ -182,6 +182,10 @@ class Repository(TimestampMixin, Base):
     external_id: Mapped[str] = mapped_column(String(255))
     full_name: Mapped[str] = mapped_column(String(255))
     default_branch: Mapped[str] = mapped_column(String(255), default="main")
+    webhook_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    webhook_events: Mapped[list[str]] = mapped_column(
+        JSON, default=lambda: ["opened", "reopened", "synchronize", "ready_for_review"]
+    )
 
 
 class GitHubWebhookDelivery(Base):
