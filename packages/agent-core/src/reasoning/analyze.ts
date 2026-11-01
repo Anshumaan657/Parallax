@@ -84,7 +84,7 @@ export type AgentContextResponseBody = {
 
 /** Provider -> allowed operations, mirroring the backend ALLOWED_PROPOSALS. */
 const ALLOWED_PROPOSALS: Record<string, ReadonlySet<string>> = {
-  github: new Set<string>(),
+  github: new Set(["pull_request.comment", "pull_request.review"]),
   jira: new Set(["issue.create", "issue.update"]),
   notion: new Set(["page.append"]),
   slack: new Set(["message.post", "message.update"]),
@@ -118,6 +118,28 @@ function buildProposals(
 
   const proposals: AgentProposal[] = [];
   const prompt = request.prompt.toLowerCase();
+
+  const githubPullRequest = request.evidence.find(
+    (item) => item.provider === "github" && item.url?.includes("/pull/"),
+  );
+  if (githubPullRequest?.url) {
+    const match = githubPullRequest.url.match(
+      /github\.com\/([^/]+\/[^/]+)\/pull\/(\d+)/,
+    );
+    if (match) {
+      proposals.push({
+        provider: "github",
+        operation: "pull_request.comment",
+        rationale: "Publish the approved review summary on the triggering pull request.",
+        payload: {
+          repository: match[1],
+          pull_number: Number(match[2]),
+          body: parsed.recommendation.slice(0, 10000),
+        },
+        citations: [baseCitation],
+      });
+    }
+  }
 
   const wantsJira =
     request.evidence.some((item) => item.provider === "jira") ||

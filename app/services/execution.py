@@ -9,7 +9,12 @@ from sqlalchemy.orm import selectinload
 
 from app.config import settings
 from app.integrations.contracts import AdapterError, ApprovedWriteContext, ExternalRecord
-from app.integrations.registry import build_jira_adapter, build_notion_adapter, build_slack_adapter
+from app.integrations.registry import (
+    build_github_adapter,
+    build_jira_adapter,
+    build_notion_adapter,
+    build_slack_adapter,
+)
 from app.models import (
     ActionProposal,
     ApprovalBundle,
@@ -25,6 +30,27 @@ from app.services.missions import record_mission_event, transition_mission
 
 
 async def _execute(action: ActionProposal, approval: ApprovedWriteContext) -> ExternalRecord:
+    if action.provider == IntegrationProvider.GITHUB:
+        github_adapter = build_github_adapter()
+        try:
+            repository = str(action.payload["repository"])
+            pull_number = int(action.payload["pull_number"])
+            body = str(action.payload["body"])
+            if action.operation == "pull_request.comment":
+                return await github_adapter.create_pull_request_comment(
+                    repository, pull_number, body, approval
+                )
+            if action.operation == "pull_request.review":
+                return await github_adapter.create_pull_request_review(
+                    repository,
+                    pull_number,
+                    body,
+                    str(action.payload.get("event", "COMMENT")),
+                    approval,
+                )
+            raise ValueError("Unsupported GitHub write operation")
+        finally:
+            await github_adapter.close()
     if action.provider == IntegrationProvider.JIRA:
         jira_adapter = build_jira_adapter()
         try:
@@ -58,6 +84,20 @@ async def _execute(action: ActionProposal, approval: ApprovedWriteContext) -> Ex
 
 
 async def _verify(action: ActionProposal, external: ExternalRecord) -> dict[str, Any]:
+    if action.provider == IntegrationProvider.GITHUB:
+        github_adapter = build_github_adapter()
+        try:
+            repository = str(action.payload["repository"])
+            record_id = f"{repository}:{external.external_id}"
+            if action.operation == "pull_request.comment":
+                record = await github_adapter.get_issue_comment(record_id)
+            elif action.operation == "pull_request.review":
+                record = await github_adapter.get_pull_request_review(record_id)
+            else:
+                raise ValueError("Unsupported GitHub verification operation")
+            return {"external_id": record.external_id, "title": record.title}
+        finally:
+            await github_adapter.close()
     if action.provider == IntegrationProvider.JIRA:
         jira_adapter = build_jira_adapter()
         try:

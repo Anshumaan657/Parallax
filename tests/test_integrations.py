@@ -146,11 +146,14 @@ async def test_write_clients_require_approval_before_network() -> None:
         calls.append((request.method, request.url.path))
         if request.url.path == "/rest/api/3/issue":
             return httpx.Response(201, json={"id": "1", "key": "PAY-1"})
+        if request.url.path.endswith("/comments"):
+            return httpx.Response(201, json={"id": 123, "html_url": "https://github.example/comment/123"})
         if request.url.path.endswith("/children"):
             return httpx.Response(200, json={"results": []})
         return httpx.Response(200, json={"ok": True, "ts": "123.456"})
 
     transport = httpx.MockTransport(handler)
+    github = GitHubAdapter("token", 2, transport)
     jira = JiraAdapter("https://jira.example", "owner@example.com", "token", 2, transport)
     notion = NotionAdapter("token", 2, transport)
     slack = SlackAdapter("token", 2, transport)
@@ -161,18 +164,24 @@ async def test_write_clients_require_approval_before_network() -> None:
             await notion.append_blocks("page-1", [], None)
         with pytest.raises(PermissionError):
             await slack.post_message("C123", "No approval", None)
+        with pytest.raises(PermissionError):
+            await github.create_pull_request_comment("acme/service", 7, "No approval", None)
         assert calls == []
 
         approved = approval()
+        comment = await github.create_pull_request_comment("acme/service", 7, "Approved", approved)
+        assert comment.external_id == "123"
         assert (await jira.create_issue({"summary": "Approved"}, approved)).external_id == "PAY-1"
         await notion.append_blocks("page-1", [], approved)
         assert (await slack.post_message("C123", "Approved", approved)).external_id == "123.456"
         assert calls == [
+            ("POST", "/repos/acme/service/issues/7/comments"),
             ("POST", "/rest/api/3/issue"),
             ("PATCH", "/v1/blocks/page-1/children"),
             ("POST", "/api/chat.postMessage"),
         ]
     finally:
+        await github.close()
         await jira.close()
         await notion.close()
         await slack.close()

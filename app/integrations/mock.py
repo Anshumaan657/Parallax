@@ -34,6 +34,16 @@ CAPABILITIES: dict[IntegrationProvider, list[IntegrationCapability]] = {
         IntegrationCapability(
             operation="contents.get", access="read", description="Repository file content"
         ),
+        IntegrationCapability(
+            operation="pull_request.comment",
+            access="write",
+            description="Post an approved pull request comment",
+        ),
+        IntegrationCapability(
+            operation="pull_request.review",
+            access="write",
+            description="Submit an approved pull request review",
+        ),
     ],
     IntegrationProvider.JIRA: [
         IntegrationCapability(operation="issue.get", access="read", description="Issue metadata"),
@@ -131,6 +141,53 @@ class MockGitHubAdapter(MockAdapter):
         self, full_name: str, path: str, ref: str | None = None
     ) -> dict[str, Any]:
         return {"name": path, "path": path, "ref": ref or "main", "content": "", "mock": True}
+
+    async def create_pull_request_comment(
+        self,
+        full_name: str,
+        number: int,
+        body: str,
+        approval: ApprovedWriteContext | None,
+    ) -> ExternalRecord:
+        require_approval(approval)
+        return ExternalRecord(
+            provider=self.provider,
+            external_id=f"mock-comment-{number}",
+            title=f"GitHub comment on PR #{number}",
+            data={"repository": full_name, "body": body, "mock": True},
+        )
+
+    async def create_pull_request_review(
+        self,
+        full_name: str,
+        number: int,
+        body: str,
+        event: str,
+        approval: ApprovedWriteContext | None,
+    ) -> ExternalRecord:
+        require_approval(approval)
+        return ExternalRecord(
+            provider=self.provider,
+            external_id=f"mock-review-{number}",
+            title=f"GitHub review on PR #{number}",
+            data={"repository": full_name, "body": body, "event": event, "mock": True},
+        )
+
+    async def get_issue_comment(self, comment_id: str) -> ExternalRecord:
+        return ExternalRecord(
+            provider=self.provider,
+            external_id=comment_id,
+            title="GitHub pull request comment",
+            data={"mock": True},
+        )
+
+    async def get_pull_request_review(self, review_id: str) -> ExternalRecord:
+        return ExternalRecord(
+            provider=self.provider,
+            external_id=review_id,
+            title="GitHub pull request review",
+            data={"mock": True},
+        )
 
 
 class MockJiraAdapter(MockAdapter):

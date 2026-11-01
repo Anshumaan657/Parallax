@@ -29,7 +29,8 @@ export function evaluateActionPolicy(
   if (
     action.type === "jira.create_issue" ||
     action.type === "jira.update_issue" ||
-    action.type === "github.update_pull_request" ||
+    action.type === "github.pull_request.comment" ||
+    action.type === "github.pull_request.review" ||
     action.type === "notion.update_documentation"
   ) {
     return {

@@ -76,7 +76,7 @@ class AgentContextResponse(BaseModel):
 
 
 ALLOWED_PROPOSALS: dict[IntegrationProvider, frozenset[str]] = {
-    IntegrationProvider.GITHUB: frozenset(),
+    IntegrationProvider.GITHUB: frozenset({"pull_request.comment", "pull_request.review"}),
     IntegrationProvider.JIRA: frozenset({"issue.create", "issue.update"}),
     IntegrationProvider.NOTION: frozenset({"page.append"}),
     IntegrationProvider.SLACK: frozenset({"message.post", "message.update"}),
