@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 
 import { createBackendClient, unwrap } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/errors";
-import type { ApprovalDecision, ApprovalEdit, IntegrationProvider, MissionCreate, WorkspaceRole } from "@/lib/api/types";
+import type { ApprovalDecision, ApprovalEdit, GitHubRepositoryCreate, IntegrationProvider, MissionCreate, WorkspaceRole } from "@/lib/api/types";
 import { clearTokenCookies, readTokenCookies, setTokenCookies } from "@/lib/auth/cookies";
 import { authDisabled, previewSession } from "@/lib/auth/preview";
 
@@ -64,6 +64,7 @@ export async function getProjects() { const c = await authenticatedClient(); ret
 export async function getIntegrations() { const c = await authenticatedClient(); return unwrap(await c.GET("/api/integrations")); }
 export async function getIntegrationHealth() { const c = await authenticatedClient(); return unwrap(await c.GET("/api/integrations/health")); }
 export async function getIntegrationCapabilities(provider: IntegrationProvider) { const c = await authenticatedClient(); return unwrap(await c.GET("/api/integrations/{provider}/capabilities", { params: { path: { provider } } })); }
+export async function getGitHubRepositories() { const c = await authenticatedClient(); return unwrap(await c.GET("/api/integrations/github/repositories")); }
 export async function getMissions(limit = 20, offset = 0) { const c = await authenticatedClient(); return unwrap(await c.GET("/api/missions", { params: { query: { limit, offset } } })); }
 export async function getMission(id: string) { const c = await authenticatedClient(); return unwrap(await c.GET("/api/missions/{mission_id}", { params: { path: { mission_id: id } } })); }
 export async function getTimeline(id: string) { const c = await authenticatedClient(); return unwrap(await c.GET("/api/missions/{mission_id}/timeline", { params: { path: { mission_id: id } } })); }
@@ -89,4 +90,6 @@ export async function rejectBundle(id: string, body: ApprovalDecision) { return 
 export async function cancelBundle(id: string, body: ApprovalDecision) { return actionCall((c) => c.POST("/api/approvals/{bundle_id}/cancel", { params: { path: { bundle_id: id } }, body })); }
 export async function editBundle(id: string, body: ApprovalEdit) { return actionCall((c) => c.POST("/api/approvals/{bundle_id}/edit", { params: { path: { bundle_id: id } }, body })); }
 export async function checkIntegration(provider: IntegrationProvider) { return actionCall((c) => c.POST("/api/integrations/{provider}/check", { params: { path: { provider } } })); }
+export async function registerGitHubRepository(body: GitHubRepositoryCreate) { return actionCall((c) => c.POST("/api/integrations/github/repositories", { body })); }
+export async function revokeGitHubToken() { return actionCall((c) => c.POST("/api/integrations/github/revoke")); }
 export async function updateMemberRole(userId: string, role: WorkspaceRole) { return actionCall((c) => c.PATCH("/api/workspaces/current/members/{user_id}", { params: { path: { user_id: userId } }, body: { role } })); }

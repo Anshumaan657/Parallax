@@ -29,6 +29,8 @@ export type WorkspaceSummary = ApiSchemas["WorkspaceSummary"];
 export type TokenResponse = ApiSchemas["TokenResponse"];
 export type IntegrationProvider = ApiSchemas["IntegrationProvider"];
 export type ReadyResponse = ApiSchemas["ReadyResponse"];
+export type GitHubRepository = ApiSchemas["GitHubRepositoryRead"];
+export type GitHubRepositoryCreate = ApiSchemas["GitHubRepositoryCreate"];
 export type HealthResponse = ApiSchemas["HealthResponse"];
 
 export const terminalMissionStatuses = new Set<MissionStatus>([
