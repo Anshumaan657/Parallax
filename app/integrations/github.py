@@ -10,6 +10,7 @@ from app.integrations.contracts import (
     IntegrationCapability,
     require_approval,
 )
+from app.integrations.github_auth import GitHubTokenManager
 from app.integrations.http import VendorHttpClient
 from app.models import IntegrationProvider
 
@@ -54,9 +55,25 @@ class GitHubAdapter:
     ]
 
     def __init__(
-        self, token: str, timeout: float, transport: httpx.AsyncBaseTransport | None = None
+        self,
+        token: str,
+        timeout: float,
+        transport: httpx.AsyncBaseTransport | None = None,
+        *,
+        refresh_token: str = "",
+        token_expires_at: datetime | None = None,
+        oauth_client_id: str = "",
+        oauth_client_secret: str = "",
     ):
-        self.configured = bool(token)
+        self.token_manager = GitHubTokenManager(
+            access_token=token,
+            refresh_token=refresh_token,
+            expires_at=token_expires_at,
+            client_id=oauth_client_id,
+            client_secret=oauth_client_secret,
+            transport=transport,
+        )
+        self.configured = self.token_manager.configured
         self.http = VendorHttpClient(
             self.provider,
             "https://api.github.com",
@@ -69,6 +86,10 @@ class GitHubAdapter:
             transport,
         )
 
+    async def _ensure_token(self) -> None:
+        token = await self.token_manager.ensure_valid()
+        self.http.client.headers["Authorization"] = f"Bearer {token}"
+
     async def health(self) -> AdapterHealth:
         if not self.configured:
             return AdapterHealth(
@@ -77,6 +98,7 @@ class GitHubAdapter:
                 detail="Missing GITHUB_TOKEN",
                 checked_at=datetime.now(UTC),
             )
+        await self._ensure_token()
         data = await self.http.request("GET", "/user")
         return AdapterHealth(
             provider=self.provider,
@@ -86,6 +108,7 @@ class GitHubAdapter:
         )
 
     async def get_repository(self, full_name: str) -> ExternalRecord:
+        await self._ensure_token()
         data: dict[str, Any] = await self.http.request("GET", f"/repos/{full_name}")
         return ExternalRecord(
             provider=self.provider,
@@ -96,6 +119,7 @@ class GitHubAdapter:
         )
 
     async def get_pull_request(self, full_name: str, number: int) -> ExternalRecord:
+        await self._ensure_token()
         data: dict[str, Any] = await self.http.request("GET", f"/repos/{full_name}/pulls/{number}")
         return ExternalRecord(
             provider=self.provider,
@@ -106,18 +130,21 @@ class GitHubAdapter:
         )
 
     async def list_pull_requests(self, full_name: str, state: str = "open") -> list[dict[str, Any]]:
+        await self._ensure_token()
         data: list[dict[str, Any]] = await self.http.request(
             "GET", f"/repos/{full_name}/pulls", params={"state": state}
         )
         return data
 
     async def get_pull_request_files(self, full_name: str, number: int) -> list[dict[str, Any]]:
+        await self._ensure_token()
         data: list[dict[str, Any]] = await self.http.request(
             "GET", f"/repos/{full_name}/pulls/{number}/files", params={"per_page": 100}
         )
         return data
 
     async def get_pull_request_commits(self, full_name: str, number: int) -> list[dict[str, Any]]:
+        await self._ensure_token()
         data: list[dict[str, Any]] = await self.http.request(
             "GET", f"/repos/{full_name}/pulls/{number}/commits", params={"per_page": 100}
         )
@@ -126,6 +153,7 @@ class GitHubAdapter:
     async def get_contents(
         self, full_name: str, path: str, ref: str | None = None
     ) -> dict[str, Any]:
+        await self._ensure_token()
         params = {"ref": ref} if ref else None
         data: dict[str, Any] = await self.http.request(
             "GET", f"/repos/{full_name}/contents/{path.lstrip('/')}", params=params
@@ -140,6 +168,7 @@ class GitHubAdapter:
         approval: ApprovedWriteContext | None,
     ) -> ExternalRecord:
         require_approval(approval)
+        await self._ensure_token()
         data: dict[str, Any] = await self.http.request(
             "POST", f"/repos/{full_name}/issues/{number}/comments", json={"body": body}
         )
@@ -160,6 +189,7 @@ class GitHubAdapter:
         approval: ApprovedWriteContext | None,
     ) -> ExternalRecord:
         require_approval(approval)
+        await self._ensure_token()
         if event not in {"COMMENT", "APPROVE", "REQUEST_CHANGES"}:
             raise ValueError("Unsupported GitHub review event")
         data: dict[str, Any] = await self.http.request(
@@ -176,6 +206,7 @@ class GitHubAdapter:
         )
 
     async def get_issue_comment(self, comment_id: str) -> ExternalRecord:
+        await self._ensure_token()
         repository, raw_id = comment_id.split(":", 1)
         data: dict[str, Any] = await self.http.request(
             "GET", f"/repos/{repository}/issues/comments/{raw_id}"
@@ -189,6 +220,7 @@ class GitHubAdapter:
         )
 
     async def get_pull_request_review(self, review_id: str) -> ExternalRecord:
+        await self._ensure_token()
         repository, raw_id = review_id.split(":", 1)
         data: dict[str, Any] = await self.http.request(
             "GET", f"/repos/{repository}/pulls/reviews/{raw_id}"
@@ -200,6 +232,9 @@ class GitHubAdapter:
             title="GitHub pull request review",
             data=data,
         )
+
+    async def revoke_token(self) -> None:
+        await self.token_manager.revoke()
 
     async def close(self) -> None:
         await self.http.close()

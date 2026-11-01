@@ -1,3 +1,4 @@
+from datetime import datetime
 from functools import lru_cache
 from typing import Literal
 
@@ -29,6 +30,10 @@ class Settings(BaseSettings):
     github_token: SecretStr = SecretStr("")
     github_default_repo: str = ""
     github_webhook_secret: SecretStr = SecretStr("")
+    github_refresh_token: SecretStr = SecretStr("")
+    github_token_expires_at: datetime | None = None
+    github_oauth_client_id: str = ""
+    github_oauth_client_secret: SecretStr = SecretStr("")
     slack_bot_token: SecretStr = SecretStr("")
     slack_default_channel: str = "#engineering"
     jira_base_url: str = ""

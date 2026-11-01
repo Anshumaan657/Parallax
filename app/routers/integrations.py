@@ -159,6 +159,62 @@ async def check_integration(
     )
 
 
+@router.post(
+    "/github/revoke",
+    response_model=IntegrationStatusRead,
+    responses={**ERRORS, 502: {"model": ErrorResponse}},
+    summary="Revoke the configured GitHub token",
+)
+async def revoke_github_token(
+    request: Request,
+    identity: RequestIdentity = Depends(
+        require_roles(WorkspaceRole.OWNER, WorkspaceRole.ADMIN)
+    ),
+    session: AsyncSession = Depends(get_session),
+) -> IntegrationStatusRead:
+    record = (
+        await session.execute(
+            select(Integration).where(
+                Integration.workspace_id == identity.workspace.id,
+                Integration.provider == IntegrationProvider.GITHUB,
+            )
+        )
+    ).scalar_one_or_none()
+    if record is None:
+        raise HTTPException(status_code=404, detail="GitHub integration not found")
+    adapter = build_github_adapter()
+    try:
+        await adapter.revoke_token()
+    except AdapterError as exc:
+        record.status = IntegrationStatus.ERROR
+        record.configuration = {**record.configuration, "last_message": str(exc)}
+        await session.commit()
+        raise HTTPException(status_code=502, detail=str(exc)) from None
+    finally:
+        await adapter.close()
+    record.status = IntegrationStatus.DISCONNECTED
+    record.last_checked_at = None
+    record.configuration = {
+        **record.configuration,
+        "last_message": "GitHub token revoked",
+        "mode": settings.integration_mode,
+    }
+    session.add(
+        AuditEvent(
+            workspace_id=identity.workspace.id,
+            actor_user_id=identity.user.id,
+            mission_id=None,
+            event_type="integration.token_revoked",
+            correlation_id=request.state.correlation_id,
+            payload={"provider": IntegrationProvider.GITHUB.value},
+        )
+    )
+    await session.commit()
+    return IntegrationStatusRead(
+        name="GitHub", connected=False, detail="GitHub token revoked"
+    )
+
+
 @router.get(
     "/github/repositories",
     response_model=list[GitHubRepositoryRead],

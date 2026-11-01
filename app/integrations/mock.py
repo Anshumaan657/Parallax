@@ -189,6 +189,9 @@ class MockGitHubAdapter(MockAdapter):
             data={"mock": True},
         )
 
+    async def revoke_token(self) -> None:
+        _fail_if_configured(self.provider)
+
 
 class MockJiraAdapter(MockAdapter):
     def __init__(self) -> None:

@@ -37,7 +37,14 @@ def build_adapter(provider: IntegrationProvider, config: Settings = settings) ->
         return mock_adapters[provider]()
     timeout = config.integration_timeout_seconds
     if provider == IntegrationProvider.GITHUB:
-        return GitHubAdapter(config.github_token.get_secret_value(), timeout)
+        return GitHubAdapter(
+            config.github_token.get_secret_value(),
+            timeout,
+            refresh_token=config.github_refresh_token.get_secret_value(),
+            token_expires_at=config.github_token_expires_at,
+            oauth_client_id=config.github_oauth_client_id,
+            oauth_client_secret=config.github_oauth_client_secret.get_secret_value(),
+        )
     if provider == IntegrationProvider.JIRA:
         return JiraAdapter(
             config.jira_base_url,
@@ -53,7 +60,14 @@ def build_adapter(provider: IntegrationProvider, config: Settings = settings) ->
 def build_github_adapter(config: Settings = settings) -> GitHubAdapter | MockGitHubAdapter:
     if config.integration_mode == "mock":
         return MockGitHubAdapter()
-    return GitHubAdapter(config.github_token.get_secret_value(), config.integration_timeout_seconds)
+    return GitHubAdapter(
+        config.github_token.get_secret_value(),
+        config.integration_timeout_seconds,
+        refresh_token=config.github_refresh_token.get_secret_value(),
+        token_expires_at=config.github_token_expires_at,
+        oauth_client_id=config.github_oauth_client_id,
+        oauth_client_secret=config.github_oauth_client_secret.get_secret_value(),
+    )
 
 
 def build_jira_adapter(config: Settings = settings) -> JiraAdapter | MockJiraAdapter:
