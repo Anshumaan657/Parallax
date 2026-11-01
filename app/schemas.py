@@ -344,3 +344,18 @@ class IntegrationHealthRead(BaseModel):
     mode: Literal["mock", "real"]
     last_checked_at: datetime | None
     detail: str
+
+
+class GitHubRepositoryCreate(BaseModel):
+    full_name: str = Field(pattern=r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$", max_length=255)
+    project_id: uuid.UUID | None = None
+    default_branch: str = Field(default="main", min_length=1, max_length=255)
+
+
+class GitHubRepositoryRead(BaseModel):
+    id: uuid.UUID
+    full_name: str
+    external_id: str
+    project_id: uuid.UUID | None
+    default_branch: str
+    created_at: datetime

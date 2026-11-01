@@ -2,22 +2,27 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.database import get_session
 from app.dependencies import RequestIdentity, get_current_identity, require_roles
 from app.integrations.contracts import AdapterError
-from app.integrations.registry import build_adapter
+from app.integrations.registry import build_adapter, build_github_adapter
 from app.models import (
     AuditEvent,
     Integration,
     IntegrationProvider,
     IntegrationStatus,
+    Project,
+    Repository,
     WorkspaceRole,
 )
 from app.schemas import (
     ErrorResponse,
+    GitHubRepositoryCreate,
+    GitHubRepositoryRead,
     IntegrationCapabilitiesRead,
     IntegrationCapabilityRead,
     IntegrationStatusRead,
@@ -151,4 +156,106 @@ async def check_integration(
     await session.commit()
     return IntegrationStatusRead(
         name=DISPLAY[provider], connected=health.connected, detail=health.detail
+    )
+
+
+@router.get(
+    "/github/repositories",
+    response_model=list[GitHubRepositoryRead],
+    responses=ERRORS,
+    summary="List registered GitHub repositories",
+)
+async def list_github_repositories(
+    identity: RequestIdentity = Depends(get_current_identity),
+    session: AsyncSession = Depends(get_session),
+) -> list[GitHubRepositoryRead]:
+    repositories = (
+        await session.execute(
+            select(Repository)
+            .where(
+                Repository.workspace_id == identity.workspace.id,
+                Repository.provider == IntegrationProvider.GITHUB,
+            )
+            .order_by(Repository.full_name)
+        )
+    ).scalars()
+    return [
+        GitHubRepositoryRead(
+            id=repository.id,
+            full_name=repository.full_name,
+            external_id=repository.external_id,
+            project_id=repository.project_id,
+            default_branch=repository.default_branch,
+            created_at=repository.created_at,
+        )
+        for repository in repositories
+    ]
+
+
+@router.post(
+    "/github/repositories",
+    response_model=GitHubRepositoryRead,
+    status_code=201,
+    responses={**ERRORS, 409: {"model": ErrorResponse}},
+    summary="Register a GitHub repository",
+)
+async def register_github_repository(
+    payload: GitHubRepositoryCreate,
+    identity: RequestIdentity = Depends(
+        require_roles(WorkspaceRole.OWNER, WorkspaceRole.ADMIN, WorkspaceRole.MANAGER)
+    ),
+    session: AsyncSession = Depends(get_session),
+) -> GitHubRepositoryRead:
+    project = None
+    if payload.project_id is not None:
+        project = await session.scalar(
+            select(Project).where(
+                Project.id == payload.project_id,
+                Project.workspace_id == identity.workspace.id,
+            )
+        )
+        if project is None:
+            raise HTTPException(status_code=404, detail="Project not found")
+    if project is None:
+        project = await session.scalar(
+            select(Project).where(
+                Project.workspace_id == identity.workspace.id,
+                Project.name == "General",
+            )
+        )
+        if project is None:
+            raise HTTPException(status_code=409, detail="Default project is not configured")
+
+    adapter = build_github_adapter()
+    try:
+        remote = await adapter.get_repository(payload.full_name)
+    except AdapterError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from None
+    finally:
+        await adapter.close()
+
+    repository = Repository(
+        workspace_id=identity.workspace.id,
+        project_id=project.id,
+        provider=IntegrationProvider.GITHUB,
+        external_id=remote.external_id,
+        full_name=payload.full_name,
+        default_branch=payload.default_branch,
+    )
+    session.add(repository)
+    try:
+        await session.commit()
+    except IntegrityError:
+        await session.rollback()
+        raise HTTPException(
+            status_code=409, detail="GitHub repository is already registered"
+        ) from None
+    await session.refresh(repository)
+    return GitHubRepositoryRead(
+        id=repository.id,
+        full_name=repository.full_name,
+        external_id=repository.external_id,
+        project_id=repository.project_id,
+        default_branch=repository.default_branch,
+        created_at=repository.created_at,
     )
